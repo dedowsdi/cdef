@@ -1,0 +1,4 @@
+{
+	//@TODO implement
+	throw new std::runtime_error("unimplemented ___FUNC___ called");
+}
