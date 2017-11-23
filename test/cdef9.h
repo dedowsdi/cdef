@@ -42,7 +42,7 @@ class A
 struct B
 {
   public:
-    void B_m0(0int i);
+    void B_m0(int i);
 };
 
 namespace n0

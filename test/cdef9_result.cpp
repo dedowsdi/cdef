@@ -1,4 +1,4 @@
-#include "cdef.h" 
+#include "cdef9.h" 
 using namespace n1;
 using namespace std;
 
@@ -21,6 +21,13 @@ void A::A_m1(const std::string& s)
 {
 	//@TODO implement
 	throw new std::runtime_error("unimplemented A::A_m1(const std::string & s) called");
+}
+
+//--------------------------------------------------------------------
+void B::B_m0(int i)
+{
+	//@TODO implement
+	throw new std::runtime_error("unimplemented B::B_m0(int i) called");
 }
 
 namespace n0

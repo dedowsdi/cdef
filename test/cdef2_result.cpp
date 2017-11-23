@@ -1,7 +1,7 @@
 /*
  * Source generation should start after line 7
  */
-#include "cdef0.h"
+#include "cdef2.h"
 using namespace n0;
 
 #define NAME cdef
