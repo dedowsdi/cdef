@@ -10,7 +10,7 @@ nnoremap <silent> <Plug>CdefDefineRange :<C-U>call cdef#defineRange(line("'<"),l
 nnoremap <silent> <Plug>CdefDefineFile :call cdef#defineFile()<CR>
 nnoremap <silent> <Plug>CdefSwitchBetProtoAndFunc :call cdef#switchBetProtoAndFunc()<CR>
 nnoremap <silent> <Plug>CdefSwitchFile :call cdef#switchFile()<CR>
-nnoremap <silent> <Plug>CdefUpdatePrototype :call cdef#UpdatePrototype()<CR>
+nnoremap <silent> <Plug>CdefUpdatePrototype :call cdef#updatePrototype()<CR>
 nnoremap <silent> <Plug>CdefRename :call cdef#rename()<CR>
 
 command! -nargs=* -complete=file_in_path Ccpp :call cdef#copyPrototype(<f-args>)

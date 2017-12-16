@@ -106,6 +106,7 @@ namespace n1
   };
 
 //--------------------------------------------------------------------
+template<typename T>
 void n1_B<typename T>::n1_B_p0(int i)
 {
 	//@TODO implement
@@ -113,6 +114,7 @@ void n1_B<typename T>::n1_B_p0(int i)
 }
 
 //--------------------------------------------------------------------
+template<typename T>
 void n1_B<typename T>::n1_B_p1(float f)
 {
 	//@TODO implement

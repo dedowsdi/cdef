@@ -50,25 +50,25 @@ namespace n1
 {
 
 //--------------------------------------------------------------------
-void p6()
+void A::p6()
 {
 	//@TODO implement
-	throw new std::runtime_error("unimplemented n1::p6() called");
+	throw new std::runtime_error("unimplemented n1::A::p6() called");
 }
 
 //--------------------------------------------------------------------
-void p7()
+void A::p7()
 {
 	//@TODO implement
-	throw new std::runtime_error("unimplemented n1::p7() called");
+	throw new std::runtime_error("unimplemented n1::A::p7() called");
 }
 }
 
 //--------------------------------------------------------------------
-void p8()
+void B::p8()
 {
 	//@TODO implement
-	throw new std::runtime_error("unimplemented p8() called");
+	throw new std::runtime_error("unimplemented B::p8() called");
 }
 
 //--------------------------------------------------------------------

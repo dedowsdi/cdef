@@ -71,6 +71,7 @@ namespace n1 {
   };
 
 //--------------------------------------------------------------------
+template<typename T>
 void A<typename T>::n1_A_p0()
 {
 	//@TODO implement
@@ -78,6 +79,7 @@ void A<typename T>::n1_A_p0()
 }
 
 //--------------------------------------------------------------------
+template<typename T>
 void A<typename T>::n1_A_p1()
 {
 	//@TODO implement

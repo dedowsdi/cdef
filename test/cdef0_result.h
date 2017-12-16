@@ -1,5 +1,4 @@
 #include <isotream>
-#include <string>
 
 void p0();
 
@@ -18,11 +17,18 @@ void p5();
 
 namespace n1
 {
-  void p6();
+  class A
+  {
+  public:
+    void p6();
 
-  void p7();
+    void p7();
+  };
 }
 
-void p8();
+struct B
+{
+  void p8();
+};
 
 void p9();
