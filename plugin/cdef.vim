@@ -6,7 +6,7 @@ let g:loaded_cdef_plugin = 1
 " TODO check if ctags installed
 
 nnoremap <silent> <Plug>CdefDefineTag :call cdef#defineTag()<CR>
-nnoremap <silent> <Plug>CdefDefineRange :<C-U>call cdef#defineRange(line("'<"),line("'<"))<CR>
+vnoremap <Plug>CdefDefineRange :<C-U>call cdef#define(line("'<"),line("'>"))<CR>
 nnoremap <silent> <Plug>CdefDefineFile :call cdef#defineFile()<CR>
 nnoremap <silent> <Plug>CdefSwitchBetProtoAndFunc :call cdef#switchBetProtoAndFunc()<CR>
 nnoremap <silent> <Plug>CdefSwitchFile :call cdef#switchFile()<CR>
@@ -19,7 +19,7 @@ command! -nargs=0 Crmf :call cdef#mvFunc()
 command! -nargs=0 Crrmf :call cdef#rmFunc()
 
 command! -nargs=0 Cnh :call cdef#addHeadGate()
-command! -nargs=? Cngs :call mycpp#genGetSet({"register":<q-args>, "entries":"gs"})
-command! -nargs=? Cngst :call mycpp#genGetSet({"register":<q-args>, "entries":"gst"})
-command! -nargs=? Cncgs :call mycpp#genGetSet({"const":1, "register":<q-args>, "entries":"gs"})
-command! -nargs=? Cncgst :call mycpp#genGetSet({"const":1, "register":<q-args>, "entries":"gst"})
+command! -nargs=? Cngs :call cdef#genGetSet({"register":<q-args>, "entries":"gs"})
+command! -nargs=? Cngst :call cdef#genGetSet({"register":<q-args>, "entries":"gst"})
+command! -nargs=? Cncgs :call cdef#genGetSet({"const":1, "register":<q-args>, "entries":"gs"})
+command! -nargs=? Cncgst :call cdef#genGetSet({"const":1, "register":<q-args>, "entries":"gst"})

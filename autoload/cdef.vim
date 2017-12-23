@@ -22,6 +22,7 @@ let s:NOTIFY_WARN = 2
 let s:NOTIFY_NOTICE = 3
 let s:NOTIFY_INFO = 4
 let s:NOTIFY_DEBUG = 5
+let s:NOTIFY_TRIVIAL = 6
 
 function! s:notify(msg, ...)
   let lvl = get(a:000, 0, s:NOTIFY_NOTICE)
@@ -55,6 +56,10 @@ endfunction
 
 function! s:debug(msg)
   call s:notify(a:msg, s:NOTIFY_DEBUG)
+endfunction
+
+function! s:trivial(msg)
+  call s:notify(a:msg, s:NOTIFY_TRIVIAL)
 endfunction
 
 function! s:edit(file)
@@ -598,15 +603,13 @@ endfunction
 
 function! cdef#getPrototypeString(prototype)
   let str = a:prototype.name . a:prototype.signature
-  if has_key(a:prototype, "template")
-    let str = 'template'. a:prototype.template .str
-  endif
   if has_key(a:prototype, "scope")
     let str = a:prototype.scope . '::' . str
   endif
   if has_key(a:prototype, "properties")
     let str = str . ':' . a:prototype.properties
   endif
+  let str = cdef#getTemplate(a:prototype) . str
   return str
 endfunction
 
@@ -879,26 +882,112 @@ function! cdef#getTemplate(tag)
   if has_key(a:tag, "template")
     let template = printf('%stemplate%s', template, a:tag.template)
   endif
+
+  let template = substitute(template, '\v\zs\s*\=.{-}\ze[,>]', '', 'g')
   
   return template
+endfunction
+
+function! cdef#cmpSig(s0, s1)
+  if a:s0 == a:s1
+    return 1
+  endif
+
+  let l0 = split(a:s0, ',')
+  let l1 = split(a:s1, ',')
+
+  " check arg number
+  if len(l0) != len(l1) 
+    return 0
+  endif
+
+  " compare arg one by one
+  for i in range(len(l0))
+    let arg0 = l0[i]
+    let arg1 = l1[i]
+    if arg0 == arg1
+      continue
+    endif
+
+    " check arg without name
+    " assume if two arguments are the same type, than one starts with the other,
+    " and the remain part has to be \s+identifier
+    if len(arg0) > len(arg1)
+      let big = arg0
+      let small = arg1
+    else
+      let big = arg1
+      let small = arg0
+    endif
+
+    if stridx(big, small) == 0 && big[len(small):] =~ '\v\s+\w+'
+      continue
+    endif
+
+    " check arg with different name
+    " assume every thing except the identifer is the same.
+    " There will be false positive for something like :
+    "     void (unsigned int);
+    "     void (unsigned short){}
+    "
+    let i0 = strridx(arg0, ' ')
+    let i1 = strridx(arg1, ' ')
+    if i0 == -1 || i1 == -1
+      return 0
+    endif
+
+    if arg0[0:i0] != arg1[0:i1]
+      return 0
+    endif
+
+    if arg0[i0:] =~ '\v\w+' && arg1[i1:] =~ '\v\w+'
+      continue
+    endif
+
+    return 0
+  endfor
+
+  return 1
+endfunction
+
+function! s:printCmpResult(desc, t0, t1)
+  if g:cdefNotifySeverity >= s:NOTIFY_TRIVIAL
+    call s:trivial(a:desc)
+    call s:trivial(printf('    %s', cdef#getPrototypeString(a:t0)))
+    call s:trivial(printf('    %s', cdef#getPrototypeString(a:t1)))
+  endif
 endfunction
 
 function! cdef#cmpProtoAndFunc(t0, t1, pattern)
   if a:t0.name == a:t1.name 
     "ctag include default value in signature
-    let sig0 = s:substituteDefaultValue(a:t0.signature, '', 'g')
-    let sig1 = s:substituteDefaultValue(a:t1.signature, '', 'g')
-    let scope0 = get(a:t0, 'scope', '').'::'
-    let scope1 = get(a:t1, 'scope', '').'::'
-    let ssig0 = substitute(sig0, a:pattern, '', '') "stripped sig 0
-    let ssig1 = substitute(sig1, a:pattern, '', '')
+    
+    let scope0 = get(a:t0, 'scope', '')
+    let scope1 = get(a:t1, 'scope', '')
     let sscope0 = substitute(scope0.'::', a:pattern, '', '') "stripped scope 0
     let sscope1 = substitute(scope1.'::', a:pattern, '', '')
-    if (sig0 == sig1 || sig0 == ssig1 || ssig0 == sig1 || ssig0 == ssig1) &&
-          \ (scope0 == scope1 || scope0 == sscope1 || sscope0 == scope1 || sscope0 == sscope1)
-      " at last compare template
-      return cdef#getTemplate(a:t0) == cdef#getTemplate(a:t1)
+    if !(scope0 == scope1 || scope0 == sscope1 || sscope0 == scope1 || sscope0 == sscope1)
+      call s:printCmpResult("compare scope failed", a:t0, a:t1)
+      return 0
     endif
+
+    let sig0 = s:substituteDefaultValue(a:t0.signature, '', 'g')
+    let sig1 = s:substituteDefaultValue(a:t1.signature, '', 'g')
+    let ssig0 = substitute(sig0, a:pattern, '', '') "stripped sig 0
+    let ssig1 = substitute(sig1, a:pattern, '', '')
+
+    if !(cdef#cmpSig(sig0, sig1) || cdef#cmpSig(sig0, ssig1) || cdef#cmpSig(ssig0, sig1) || cdef#cmpSig(ssig0, ssig1)) 
+      call s:printCmpResult("compare signature failed", a:t0, a:t1)
+      return 0
+    endif
+
+    if cdef#getTemplate(a:t0) != cdef#getTemplate(a:t1)
+      call s:printCmpResult("compare template failed", a:t0, a:t1)
+      return 0
+    endif
+
+    return 1
+
   endif
 
   return 0
@@ -1853,8 +1942,8 @@ function! cdef#genGetSet(...)
   endif
 
   let str = getline('.')
-  let varType = misc#trim(matchstr(str, g:cdef#rexParamType))
-  let varName = matchstr(str, g:cdef#rexVarName)
+  let varType = misc#trim(matchstr(str, '\v\s*\zs[^=/]+\ze<\h\w*>|\.\.\.'))
+  let varName = matchstr(str,  '\v<\w+>\ze\s*[;\=,]')
 
   let argType = opts.const ? 'const '.varType.'&':varType
   let funcPostName = varName

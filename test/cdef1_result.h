@@ -75,7 +75,7 @@ template<typename T>
 void A<typename T>::n1_A_p0()
 {
 	//@TODO implement
-	throw new std::runtime_error("unimplemented n1::A::n1_A_p0() called");
+	throw new std::runtime_error("unimplemented template<typename T>n1::A::n1_A_p0() called");
 }
 
 //--------------------------------------------------------------------
@@ -83,7 +83,7 @@ template<typename T>
 void A<typename T>::n1_A_p1()
 {
 	//@TODO implement
-	throw new std::runtime_error("unimplemented n1::A::n1_A_p1() called");
+	throw new std::runtime_error("unimplemented template<typename T>n1::A::n1_A_p1() called");
 }
 }
 

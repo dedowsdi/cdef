@@ -40,9 +40,6 @@ namespace n1 {
     void n1_A_f1()
     {
     }
-
-    template<typename T1>
-    void n1_A_p2();
   };
 }
 

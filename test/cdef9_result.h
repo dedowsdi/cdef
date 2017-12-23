@@ -110,7 +110,7 @@ template<typename T>
 void n1_B<typename T>::n1_B_p0(int i)
 {
 	//@TODO implement
-	throw new std::runtime_error("unimplemented n1::n1_B::n1_B_p0(int i) called");
+	throw new std::runtime_error("unimplemented template<typename T>n1::n1_B::n1_B_p0(int i) called");
 }
 
 //--------------------------------------------------------------------
@@ -118,7 +118,7 @@ template<typename T>
 void n1_B<typename T>::n1_B_p1(float f)
 {
 	//@TODO implement
-	throw new std::runtime_error("unimplemented n1::n1_B::n1_B_p1(float f) called");
+	throw new std::runtime_error("unimplemented template<typename T>n1::n1_B::n1_B_p1(float f) called");
 }
 }
 
