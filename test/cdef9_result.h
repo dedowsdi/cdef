@@ -139,7 +139,7 @@ void gm3();
 inline void gp0(int i, int j/* = 5*/)
 {
 	//@TODO implement
-	throw new std::runtime_error("unimplemented gp0(int i,int j=5):inline called");
+	throw new std::runtime_error("unimplemented gp0(int i,int j):inline called");
 }
 
 //--------------------------------------------------------------------

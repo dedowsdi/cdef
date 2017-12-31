@@ -50,6 +50,13 @@ namespace n1
 {
 
 //--------------------------------------------------------------------
+A::~A()
+{
+	//@TODO implement
+	throw new std::runtime_error("unimplemented n1::A::~A() called");
+}
+
+//--------------------------------------------------------------------
 void A::p6()
 {
 	//@TODO implement

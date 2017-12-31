@@ -72,7 +72,7 @@ endfunction
 function! s:getC(...) abort
   let lnum = get(a:000, 0, line('.'))
   let cnum = get(a:000, 1, col('.'))
-  return matchstr(getline(lnum), printf('\%%%dc', cnum))
+  return matchstr(getline(lnum), printf('\%%%dc.', cnum))
 endfunction
 
 function! s:getBlock(block) abort
@@ -384,7 +384,6 @@ function! cdef#switchFile(...) abort
   "not found
   if cdef#isInHead()
     let file = printf('%s%s.%s', altDir, baseName, g:cdefDefaultSourceExtension)
-    let cmd = printf('echo ''#include "%s"''>%s', file)
     echo system(printf('echo ''#include "%s"''>%s', expand('%:t'), file))
     exec 'edit ' . file
     silent exec
@@ -598,7 +597,7 @@ function! cdef#getTagFunctions(tags) abort
 endfunction
 
 function! cdef#getPrototypeString(prototype) abort
-  let str = a:prototype.name . a:prototype.signature
+  let str = a:prototype.name . cdef#handleDefaultValue(a:prototype.signature, ')', 1)
   if has_key(a:prototype, 'scope')
     let str = a:prototype.scope . '::' . str
   endif
@@ -780,9 +779,9 @@ function! cdef#searchMatch(t0, tags0) abort
   if stridx(a:t0.name, 'operator') == 0
     let reName =  '\b' . s:decorateFuncName(a:t0.name)
   else
-    let reName = '\b' . escape(a:t0.name, '~') . '\b'
+    let reName = escape(a:t0.name, '~') . '\b'
   endif
-  let ctagCmd = printf('%s%s | grep -P ''^%s|using''',g:cdefCtagCmdPre, expand('%:p'), reName)
+  "let ctagCmd = printf('%s%s | grep -P ''^%s|using''',g:cdefCtagCmdPre, expand('%:p'), reName)
   let d0 = cdef#splitTags(a:tags0)
   call cdef#extendNamespaces(d0.namespaces, d0.usings)
   let pattern = s:getUsedNamespacePattern(d0.usings)
@@ -878,7 +877,8 @@ function! cdef#getTemplate(tag) abort
     let template = printf('%stemplate%s', template, a:tag.template)
   endif
 
-  let template = substitute(template, '\v\zs\s*\=.{-}\ze[,>]', '', 'g')
+  "let template = substitute(template, '\v\zs\s*\=.{-}\ze[,>]', '', 'g')
+  let template = cdef#handleDefaultValue(template , '>', '0')
   
   return template
 endfunction
@@ -955,6 +955,7 @@ endfunction
 
 function! cdef#cmpProtoAndFunc(t0, t1, pattern) abort
   if a:t0.name == a:t1.name 
+      " 
     "ctag include default value in signature
     
     let scope0 = get(a:t0, 'scope', '')
@@ -966,8 +967,8 @@ function! cdef#cmpProtoAndFunc(t0, t1, pattern) abort
       return 0
     endif
 
-    let sig0 = s:substituteDefaultValue(a:t0.signature, '', 'g')
-    let sig1 = s:substituteDefaultValue(a:t1.signature, '', 'g')
+    let sig0 = cdef#handleDefaultValue(a:t0.signature, ')', '1')
+    let sig1 = cdef#handleDefaultValue(a:t1.signature, ')', '1')
     let ssig0 = substitute(sig0, a:pattern, '', '') "stripped sig 0
     let ssig1 = substitute(sig1, a:pattern, '', '')
 
@@ -1603,9 +1604,119 @@ function! cdef#defineTag() abort
   endif
 endfunction
 
-" replace \*= balabala
-function! s:substituteDefaultValue(str, value, flag) abort
-  return substitute(a:str, '\v[^)]{-}\zs\s*\=%(\s*\()@![^,]*\ze(,|\))', a:value, a:flag)
+" operation:
+"   0 : comment
+"   1 : remove
+function! cdef#handleDefaultValue(str, boundary, operation) abort
+
+  "return substitute(a:str, '\v[^)]{-}\zs\s*\=%(\s*\()@![^,]*\ze(,|\))', a:value, a:flag)
+  let pos = -1
+  let size = len(a:str)
+  let stack = 0
+
+  let dvs = []  " [[startPos, endPos], ...]
+
+  let pairClose = '">)]}'
+  let matching = []  " pos stack for current open stuff
+
+  " 0 : find , ) for =, 1 : find matching pair for "(<[{
+  let stage = 0
+
+  "" search, or ), ignore "", (), <>, {}, [] pair
+  let target0 = printf(',%s"<([{', a:boundary) " current search target
+  let pattern0 = printf('\v[%s]', target0)
+
+  " get =, ignore staff like != positions
+  while 1
+    let frag = matchstrpos(a:str, '\v\s*([!%^&*+-/<>])@<!\=', pos + 1)
+    if frag[2] == -1
+      break
+    endif
+
+    let pos = frag[2] - 1
+    
+    let target = target0
+    let pattern = pattern0
+
+    while 1
+      let pos = match(a:str, pattern, pos + 1)
+
+      if pos == -1 
+
+        if stage == 0
+          echoe printf('found no, or boundary for = at %d : %s', frag[2] - 1 , a:str)
+          return a:str
+        else
+          echoe printf('found no matching %s for %s, at %d : %s', target[1], target[0], matching[-1],  a:str)
+          return a:str
+        endif
+
+      else
+
+        let idx = stridx(target, a:str[pos])
+
+        if stage == 0
+          if idx <= 1
+            " found , or boundary
+            let dvs += [ [frag[1], pos - 1]]
+            break
+          endif
+
+          " found <, [, {, ", change stage
+          let stage = 1
+          let stack = 1
+          " set target to <> or () or [] or {}
+          let target = a:str[pos] . pairClose[idx - 2]
+          let matching += [pos]
+          let pattern = printf('\v[%s]', escape(target, ']'))
+          continue
+        endif
+
+        if idx == 0 && target[0] != '"'
+          " another same open stuff need to be matched
+          let stack += 1
+          let matching += [pos]
+          continue
+        endif
+
+        let stack -= 1
+        call remove(matching, -1)
+        if stack == 0
+          " all open stuff closed, switch stage
+          let pattern = pattern0
+          let target = target0
+          let stage = 0
+        endif
+
+      endif
+
+    endwhile
+  endwhile
+
+  if empty(dvs)
+    return a:str
+  endif
+
+  if a:operation == 1
+    let resStr = ''
+    let pos = 0
+    for pair in dvs
+      let resStr .= a:str[pos : pair[0] - 1]
+      let pos = pair[1] + 1
+    endfor
+    let resStr .= a:str[pos : ]
+    return resStr
+  else
+    let resStr = ''
+    let pos = 0
+    for pair in dvs
+      let resStr .= a:str[pos : pair[0] - 1] . '/*' . a:str[pair[0] : pair[1]] . '*/'
+      let pos = pair[1] + 1
+    endfor
+    let resStr .= a:str[pos : ]
+    return resStr
+  endif
+
 endfunction
 
 " (prorotype, nsFullName [, withHat])
@@ -1636,7 +1747,7 @@ function! cdef#genFuncDefHead(prototype, nsFullName, ...) abort
   endif
 
   "comment default value, must be called before remove trailing
-  let funcHead = s:substituteDefaultValue(funcHead, '/*\0*/', 'g')
+  let funcHead = cdef#handleDefaultValue(funcHead, ')', '0')
   "remove static or virtual
   let funcHead = substitute(funcHead, '\vstatic\s*|virtual\s*', '', '' )
   "remove trailing
@@ -1660,7 +1771,7 @@ function! cdef#genFuncDefHead(prototype, nsFullName, ...) abort
     if stridx(a:prototype.name, 'operator') == 0
       let funcHead = substitute(funcHead, '\V\<operator', scope.'::\0', '')
     else
-      let funcHead = substitute(funcHead, '\V\<'.a:prototype.name, scope.'::\0', '')
+      let funcHead = substitute(funcHead, '\V\(\s\|\^\)\zs'.a:prototype.name.'\>', scope.'::\0', '')
     endif
 
     " add class template
@@ -1932,18 +2043,18 @@ function! cdef#genGetSet(...) abort
     let opts.register = 'g'
   endif
   "add extra blink line if register is uppercase
-  if misc#isUppercase(opts.register)
+  if cdef#isUppercase(opts.register)
     exec 'let @'.opts.register.' = "\n"'
   endif
 
   let str = getline('.')
-  let varType = misc#trim(matchstr(str, '\v\s*\zs[^=/]+\ze<\h\w*>|\.\.\.'))
+  let varType = cdef#trim(matchstr(str, '\v\s*\zs[^=/]+\ze<\h\w*>|\.\.\.'))
   let varName = matchstr(str,  '\v<\w+>\ze\s*[;\=,]')
 
   let argType = opts.const ? 'const '.varType.'&':varType
   let funcPostName = varName
   "remove m from mName
-  if funcPostName[0] ==# 'm' && misc#isUpperCase(funcPostName[1])
+  if funcPostName[0] ==# 'm' && cdef#isUppercase(funcPostName[1])
     let funcPostName = funcPostName[1:]
   endif
   "make sure 1st character is upper case
@@ -1951,14 +2062,29 @@ function! cdef#genGetSet(...) abort
 
   "generate get set toggle
   if stridx(opts.entries, 'g') !=# -1
-    let res = argType.' get'.funcPostName.'() const { return '.varName.'; }\n'
+    let res = argType.' get'.funcPostName.'() const { return '.varName."; }\n"
   endif
   if stridx(opts.entries, 's') !=# -1
-    let res .= 'void set'.funcPostName.'( '.argType.' v){'.varName.' = v;}\n'
+    let res .= 'void set'.funcPostName.'( '.argType.' v){'.varName." = v;}\n"
   endif
   if stridx(opts.entries, 't') != -1
-    let res .= 'void toggle'.funcPostName.'() { '.varName.' = !'. varName . '; }\n'
+    let res .= 'void toggle'.funcPostName.'() { '.varName.' = !'. varName . "; }\n"
   endif
 
   exec 'let @'.opts.register.' = res'
 endfunction
+
+function! cdef#isUppercase(s) abort
+  let re = '\v^\C[A-Z_0-9]+$'
+  return match(a:s, re) == 0
+endfunction
+
+function! cdef#trim(s, ...) abort
+  let noLeft = get(a:000, 0, 0)
+  let noRight = get(a:000, 1, 0)
+  let res = a:s
+  if !noLeft|let res = matchstr(res, '\v^\s*\zs.*')|endif
+  if !noRight|let res = matchstr(res, '\v.{-}\ze\s*$')|endif
+  return res
+endfunction
+

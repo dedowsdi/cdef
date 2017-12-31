@@ -20,6 +20,8 @@ namespace n1
   class A
   {
   public:
+    ~A();
+
     void p6();
 
     void p7();
