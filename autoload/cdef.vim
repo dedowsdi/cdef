@@ -92,7 +92,7 @@ endfunction
 " behave like visual block delete, but leaves no blank line
 function! s:rmBlock(block) abort
   try
-    let pos = getpos('.')
+    let blc = [bufnr(''), line('.'), col('.')]
     let [lnum0,cnum0] = a:block[0]
     let [lnum1,cnum1] = a:block[1]
 
@@ -120,7 +120,7 @@ function! s:rmBlock(block) abort
       exec printf('%d,%dd',lstart, lend)
     endif
   finally
-    call setpos('.', pos)
+    exec printf('buffer %d', blc[0]) | call cursor(blc[1], blc[2])
   endtry
 endfunction
 
@@ -596,6 +596,16 @@ function! cdef#getTagFunctions(tags) abort
   return cdef#getTagsByKind(a:tags, 'function')
 endfunction
 
+function! cdef#getTagProtoAndFunc(tags) abort
+  let result = []
+  for tag in a:tags
+    if tag.kind ==# 'prototype' || tag.kind ==# 'function'
+      let result += [tag]
+    endif
+  endfor
+  return result
+endfunction
+
 function! cdef#getPrototypeString(prototype) abort
   let str = a:prototype.name . cdef#handleDefaultValue(a:prototype.signature, ')', 1)
   if has_key(a:prototype, 'scope')
@@ -645,6 +655,24 @@ function! cdef#addStartEndToProtoAndFunc(prototype) abort
     call setpos('.', oldpos)
   endtry
 
+endfunction
+
+function! cdef#getProtoFromFunc(tag) abort
+  if a:tag.kind !=# 'function'
+    call s:fatel(printf('you can not call cdef#getProtoFromFunc with kind:%s', a:tag.kind))
+  endif
+
+  call cdef#getFuncDetail(a:tag, {'blank':0, 'cmt':0})
+  let result = getline(a:tag.line, a:tag.body[0][0])
+  " replace { or : with ; discard everything after it
+  let result[-1] = result[-1][0 : (a:tag.body[0][1] - 2)] . ';'
+
+  if result[-1] =~# '\v^\s*;\s*$'
+    let result[-2] .= ';'
+    call remove(result, -1)
+  endif
+
+  return result
 endfunction
 
 " Add fullname property. add end to using, add firstSlot to namespace
@@ -1548,7 +1576,7 @@ endfunction
 " define others in source file in sequence.
 function! cdef#define(lstart, lend) abort
   if !cdef#isInHead()
-    call cdef#notify('please switch to head file if you want to define something')
+    call s:notify('please switch to head file if you want to define something')
     return
   endif
 
@@ -1672,7 +1700,7 @@ function! cdef#handleDefaultValue(str, boundary, operation) abort
           continue
         endif
 
-        if idx == 0 && target[0] != '"'
+        if idx == 0 && target[0] !=# '"'
           " another same open stuff need to be matched
           let stack += 1
           let matching += [pos]
@@ -1973,10 +2001,10 @@ function! cdef#copyPrototype(file, ...) abort
   let name = get(a:000, 0, '.')
 
   try
-    let oldpos = getpos('.')
+    let blc = [bufnr(''), line('.'), col('.')]
 	  call  s:edit(targetFile)
     let tags = cdef#getTags()
-    let prototypes = cdef#getTagPrototypes(tags)
+    let prototypes = cdef#getTagProtoAndFunc(tags)
 
     let candidates = []
     for prototype in prototypes
@@ -2008,12 +2036,18 @@ function! cdef#copyPrototype(file, ...) abort
 
     let selection = []
     for index in indexes
-      let prototype = candidates[index]
-      call cdef#addStartEndToProtoAndFunc(prototype)
-      let selection = [''] + getline(prototype.start, prototype.end) + selection
+      let tag = candidates[index]
+      if tag.kind ==# 'prototype'
+        call cdef#addStartEndToProtoAndFunc(tag)
+        let heads = getline(tag.start, tag.end)
+      else
+         let heads = cdef#getProtoFromFunc(tag)
+      endif
+      
+      let selection = selection + [''] + heads 
     endfor
   finally
-    call setpos('.', oldpos)
+    exec printf('buffer %d', blc[0]) | call cursor(blc[1], blc[2])
   endtry
 
   "trim left
