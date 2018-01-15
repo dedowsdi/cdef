@@ -42,9 +42,9 @@ function! s:cmpFile(lhs, rhs)
   echom "compare ". a:lhs . " with " . a:rhs
   let success = 1
 
-  call s:callCdef("edit", a:lhs)
+  call s:callCdef("open", a:lhs)
   let list0 = getline(1, line('$'))
-  call s:callCdef("edit", a:rhs)
+  call s:callCdef("open", a:rhs)
   let list1 = getline(1, line('$'))
 
   let l0 = len(list0)
@@ -151,7 +151,7 @@ let [startLine, startCol, curFile] = [line('.'), col('.'), expand('%:p')]|try
         echom 'define ' . cdef#getPrototypeString(prototypes[j])
         call cursor(prototypes[j].line, 1) 
         call cdef#defineTag()
-        call s:callCdef('edit', testrh)
+        call s:callCdef('open', testrh)
         let tags = cdef#getTags()
         let prototypes = cdef#getTagPrototypes(tags)
       endfor

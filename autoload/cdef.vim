@@ -62,10 +62,21 @@ function! s:trivial(msg) abort
   call s:notify(a:msg, s:NOTIFY_TRIVIAL)
 endfunction
 
-function! s:edit(file) abort
-  if expand('%:p') != a:file && expand('%') != a:file
-    silent! exec 'edit ' . a:file
+function! s:open(file) abort
+  let f0 = expand('%:p')
+  let f1 = fnamemodify(a:file, '%:p')
+
+  if f0 ==# f1
+    return
   endif
+
+  let nr = bufnr(f1)
+  if nr != -1
+    exec printf('buffer %d', nr)
+    return
+  endif
+
+  silent! exec 'edit ' . a:file
 endfunction
 
 " ([lnum, cnum])
@@ -170,6 +181,8 @@ function! s:strToTag(str) abort
     let d['scope'] = d.namespace
   endif
 
+  let d.fullName = has_key(d, 'scope') ? d.scope.'::'.d.name : d.name
+
   return d
 endfunction
 
@@ -205,7 +218,7 @@ function! cdef#getFuncDetail(tag, ...) abort
   call extend(opts, {'blank': 1, 'cmt' : 1}, 'keep')
   try
     let oldpos = getpos('.')
-    call s:edit(a:tag.file)
+    call s:open(a:tag.file)
     let a:tag['range'] = [0,0]
     if opts.cmt
       let cmtRange = cdef#getCmtRange(a:tag.start - 1)
@@ -464,7 +477,7 @@ function! cdef#getTags(...) abort
   if !empty(l) && l[0][0:4] ==# 'ctags:'
     throw printf('ctag cmd failed : %s\n. Error message:%s', ctagCmd, string(l))
   endif
-  let tags = [cdef#createTag('##global##', '', 0, 'namespace', {'end': 1000000})]
+  let tags = [cdef#createTag('##global##', '', 0, 'namespace', {'end': 1000000, 'fullName': '##global##'})]
   let namespaceStack = [tags[0]]
   let classStack = [{}]
 
@@ -474,11 +487,13 @@ function! cdef#getTags(...) abort
 
     while namespaceStack[-1].end < tag.line
       " pop namespace
+      call s:trivial(printf('tag : pop namespace %s', namespaceStack[-1].name))
       let namespaceStack = namespaceStack[0:-2]
     endwhile
 
     while classStack[-1] != {} && classStack[-1].end < tag.line
       " pop class
+      call s:trivial(printf('tag : pop class %s', classStack[-1].name))
       let classStack = classStack[0:-2]
     endwhile
 
@@ -488,6 +503,7 @@ function! cdef#getTags(...) abort
               \ tag.name, tag.line))
         return
       endif
+      call s:trivial(printf('tag : push namespace %s', tag.name))
       let namespaceStack += [tag]
     elseif tag.kind ==# 'class'
       if !has_key(tag, 'end')
@@ -495,6 +511,7 @@ function! cdef#getTags(...) abort
               \ tag.name, tag.line))
         return
       endif
+      call s:trivial(printf('tag : push class %s', tag.name))
       let classStack += [tag]
     elseif tag.kind ==# 'prototype' || tag.kind ==# 'function'
       let tag['class'] = classStack[-1]
@@ -535,7 +552,7 @@ function! cdef#findTag(tags, lnum) abort
   return idx == -1 ? {} : a:tags[idx]
 endfunction
 
-"([line, [tags]])
+"([line])
 function! cdef#getTagAtLine(...) abort
   let lnum = get(a:000, 0, line('.'))
   let ctagCmd = g:cdefCtagCmdPre . expand('%:p') . ' | grep -P ''\t'.lnum.''';'
@@ -626,7 +643,7 @@ function! cdef#addStartEndToProtoAndFunc(prototype) abort
 	try
     let oldpos = getpos('.')
 
-    call s:edit(a:prototype.file)
+    call s:open(a:prototype.file)
 
     if !has_key(a:prototype, 'end')
       call cursor(a:prototype.line, 1)
@@ -675,21 +692,13 @@ function! cdef#getProtoFromFunc(tag) abort
   return result
 endfunction
 
-" Add fullname property. add end to using, add firstSlot to namespace
-function! cdef#extendNamespaces(namespaces, usings) abort
-  let d = {}
-
-  for namespace in a:namespaces
-    let namespace['fullName'] = has_key(namespace, 'scope') ?
-          \ namespace.scope.'::'.namespace.name : namespace.name
-    let d[namespace.fullName] = namespace
-    let namespace['dict'] = d
-
-    if namespace.name ==# '##global##' | continue | endif
-    "search first slot : last using after {
-    try
-			let oldpos = getpos('.')
-      call s:edit(namespace.file)
+function! cdef#locateNamespaceFirstSlot(namespaces)
+  let oldpos = getpos('.')
+  try
+    for namespace in a:namespaces
+      if namespace.name ==# '##global##' | continue | endif
+      "search first slot : last using after {
+      call s:open(namespace.file)
       call cursor(namespace.line, 1)
       if !search('\V{')
         call s:fatel('faled to find { for namespace ' . namespace.fullName )
@@ -700,27 +709,38 @@ function! cdef#extendNamespaces(namespaces, usings) abort
         "namespace
         call search('\v^\s*\S', 'bW')
       endif
+      let namespace['firstSlot'] = line('.')
+    endfor
+  finally
+    call setpos('.', oldpos)
+  endtry
+endfunction
 
-			let namespace['firstSlot'] = line('.')
-		finally
-			call setpos('.', oldpos)
-		endtry
-	endfor
-
+function! cdef#addEndToGlobalUsings(usings)
   for using in a:usings
     if !has_key(using, 'scope') " globe using
-      let using['fullName'] =  using.name
       let using['end'] = line('$')
-      let d[using.fullName] = using
-    else  " internal using
-      let using['fullName'] =  using.scope . '::' . using.name
-      if has_key(d, using.scope)
-        let using['end'] = d[using.scope].end
-      else " unknown scope
-        let using['end'] = line('$')
-      endif
-      let d[using.fullName] = using
-    endif
+    "else  " internal using
+      "if has_key(d, using.scope)
+        "let using['end'] = d[using.scope].end
+      "else " unknown scope
+        "let using['end'] = line('$')
+      "endif
+    "endif
+  endfor
+endfunction
+
+" add end to using, add firstSlot to namespace
+function! cdef#getNamespaceUsingDict(namespaces, usings) abort
+  let d = {}
+
+  for namespace in a:namespaces
+    let d[namespace.fullName] = namespace
+    let namespace['dict'] = d
+  endfor
+
+  for using in a:usings
+    let d[using.fullName] = using
     let using['dict'] = d
   endfor
 
@@ -810,9 +830,8 @@ function! cdef#searchMatch(t0, tags0) abort
     let reName = escape(a:t0.name, '~') . '\b'
   endif
   "let ctagCmd = printf('%s%s | grep -P ''^%s|using''',g:cdefCtagCmdPre, expand('%:p'), reName)
-  let d0 = cdef#splitTags(a:tags0)
-  call cdef#extendNamespaces(d0.namespaces, d0.usings)
-  let pattern = s:getUsedNamespacePattern(d0.usings)
+  let usings0 = cdef#getTagUsings(a:tags0)
+  let pattern = s:getUsedNamespacePattern(usings0)
 
   for t1 in a:tags0
     if t1.kind == a:t0.kind || (t1.kind !=# 'prototype' && t1.kind !=# 'function') | continue | endif
@@ -827,9 +846,8 @@ function! cdef#searchMatch(t0, tags0) abort
 
   let ctagCmd = printf('%s%s | grep -P ''^%s|using''',g:cdefCtagCmdPre, altFile, reName)
   let tags1 = cdef#getTags(ctagCmd)
-  let d1 = cdef#splitTags(tags1)
-  call cdef#extendNamespaces(d1.namespaces, d1.usings)
-  let pattern = s:getUsedNamespacePattern(d0.usings + d1.usings)
+  let usings1 = cdef#getTagUsings(tags1)
+  let pattern = s:getUsedNamespacePattern(usings0 + usings1)
 
   for t1 in tags1
     if t1.kind == a:t0.kind || (t1.kind !=# 'prototype' && t1.kind !=# 'function') | continue | endif
@@ -848,7 +866,7 @@ function! cdef#switchBetProtoAndFunc() abort
     let wlnum0 = winline()
     let t1 = cdef#searchMatch(t0, tags)
     if t1 == {} | return 0 | endif
-    call s:edit(t1.file)
+    call s:open(t1.file)
     call cursor(t1.line, 1) | normal! ^
     call s:scroll(wlnum0)
     return 1
@@ -878,7 +896,8 @@ function! cdef#insertManualEntry(tags, manualEntry, lstart, lend) abort
     endif
 
     " if using is the last line of source file, using.line == using.end == slot
-    if get(tag, 'end', -1) >= a:lstart || (tag.kind ==# 'using' && tag.line == slot)
+    "if get(tag, 'end', -1) >= a:lstart || (tag.kind ==# 'using' && tag.line == slot)
+    if get(tag, 'end', -1) >= a:lstart 
       let tag.end += numShift
     endif
 
@@ -1067,7 +1086,12 @@ function! s:getPrototypeNamespaceFullName() dict abort
   return self.namespace.fullName
 endfunction
 
+" jump from namespace0 to namespace1
 function! s:getNamespaceJumpSlot(namespace0, namespace1) abort
+
+  if a:namespace0.fullName == a:namespace1.fullName
+    return -1
+  endif
 
   " ignore using if it's sibling or child of namespace1
   if a:namespace0.kind ==# 'using'
@@ -1087,7 +1111,14 @@ function! s:getNamespaceJumpSlot(namespace0, namespace1) abort
   let slot = -1
   let namespace0 = a:namespace0
   while namespace0.fullName != a:namespace1.fullName
-    let slot = namespace0.end
+    if namespace0.kind ==# 'using' 
+      " namespace internal using will be popped away, only global using will be
+      " used to locate next slot
+      let slot = line('$')
+    else
+      let slot = namespace0.end
+    endif
+
     if !has_key(namespace0, 'scope') | break | endif
 
     if !has_key(namespace0.dict, namespace0.scope)
@@ -1100,14 +1131,14 @@ function! s:getNamespaceJumpSlot(namespace0, namespace1) abort
 endfunction
 
 function! s:getSourceNextSlot(t0, t1) abort
-  "global next slot
+  "global first slot
   if a:t0.name ==# '##global##' && a:t0.kind ==# 'namespace'
-    return a:t0.nextSlot
+    return a:t0.firstSlot
   endif
 
   let namespace1 = a:t1.kind ==# 'prototype' ? a:t1.namespace : a:t1
 
-  "namespace next slot
+  "namespace first slot
   if a:t0.kind ==# 'namespace'
     let slot = s:getNamespaceJumpSlot(a:t0, namespace1)
     return slot == -1 ? a:t0.firstSlot : slot
@@ -1300,7 +1331,8 @@ function! s:getHeadData(lstart, lend) abort
   call s:checkEnd(package.namespaces0)
   call s:checkEnd(package.classes0)
 
-  let package['nsDict0'] = cdef#extendNamespaces(package.namespaces0, [])
+  let package['nsDict0'] = cdef#getNamespaceUsingDict(package.namespaces0, [])
+  call cdef#locateNamespaceFirstSlot(package.namespaces0)
 
   for namespace in package.namespaces0
     let namespace['box0'] = []
@@ -1390,11 +1422,12 @@ function! s:getSourceData(package) abort
         \'classes1':d1.classes, 'prototypes1':d1.prototypes, 'functions1':d1.functions,
         \'tags1':tags1, 'source' : file})
 
-  let a:package['nsDict1'] = cdef#extendNamespaces(a:package.namespaces1, a:package.usings1)
+  let a:package['nsDict1'] = cdef#getNamespaceUsingDict(a:package.namespaces1, a:package.usings1)
+  call cdef#locateNamespaceFirstSlot(a:package.namespaces1)
 
   "check tag
   call s:checkEnd(a:package.namespaces1)
-  call s:checkEnd(a:package.usings1)
+  "call s:checkEnd(a:package.usings1)
 
   " find 1st slot for global
   " place cursor at last #linclude or last line of starting comment
@@ -1416,7 +1449,7 @@ function! s:getSourceData(package) abort
     call cursor(line('$'), 1)
   endif
 
-  let a:package.namespaces1[0]['nextSlot'] = line('.')
+  let a:package.namespaces1[0]['firstSlot'] = line('.')
 endfunction
 
 " define inlines, template related stuff in headfile namespace by namespace
@@ -1757,7 +1790,7 @@ function! cdef#genFuncDefHead(prototype, nsFullName, ...) abort
 	else
 		try
 			let oldpos = getpos('.')
-			call s:edit(a:prototype.file)
+			call s:open(a:prototype.file)
 			let funcHeadList = getline(a:prototype.line, a:prototype.end)
 		finally
 			call setpos('.', oldpos)
@@ -1817,11 +1850,11 @@ function! cdef#genFuncDefHead(prototype, nsFullName, ...) abort
 endfunction
 
 function! s:mvFuncToProto(proto, func) abort
-  call s:edit(a:func.file)
+  call s:open(a:func.file)
   let funcBody = s:getBlock(a:func.body)
   silent! execute a:func.range[0] ',' a:func.range[1] 'd'
   w
-  call s:edit(a:proto.file)
+  call s:open(a:proto.file)
   call cursor(a:proto.semicolon)|normal! x
   call append(line('.'), funcBody)
   execute printf('normal! =%dj', len(funcBody))
@@ -1907,7 +1940,7 @@ function! cdef#rmFunc() abort
   call cdef#getFuncDetail(t0)
   exec printf('%d,%dd', t0.range[0], t0.range[1])
   w
-  call s:edit(t1.file)
+  call s:open(t1.file)
   call cdef#getFuncDetail(t1)
   exec printf('%d,%dd', t1.range[0], t1.range[1])
   w
@@ -1956,9 +1989,7 @@ function! s:updatePrototypeStep0() abort
     return
   endif
 
-  let classes = cdef#getTagClasses(tags)
   let namespaces = cdef#getTagNamespaces(tags)
-  call cdef#extendNamespaces(namespaces, [])
 
   let s:updatingFunction = cdef#searchMatch(t0, tags)
   if s:updatingFunction != {}
@@ -1971,16 +2002,18 @@ endfunction
 
 function! s:updatePrototypeStep1() abort
   if s:updatingFunction == {} | call s:warn('no function to update') | return | endif
-  let prototype = s:updatingFunction.prototype
-  if prototype == {}
+  if s:updatingFunction.prototype == {}
     call s:debug('failed, prototype line must be chagned')
     let s:updatingFunction = {} | return
   endif
 
+  let tags = cdef#getTags()
+  let prototype = cdef#findTag(tags, s:updatingFunction.prototype.line)
+
   let nsFullName = prototype.namespace == {} ? '' : prototype.namespace.fullName
   let funcHead = cdef#genFuncDefHead(prototype, nsFullName, 0)
 
-  call s:edit(s:updatingFunction.file)
+  call s:open(s:updatingFunction.file)
   let func = cdef#getFuncDetail(s:updatingFunction)
   call cursor(func.head[0])
   call s:rmBlock(func.head)
@@ -2002,7 +2035,7 @@ function! cdef#copyPrototype(file, ...) abort
 
   try
     let blc = [bufnr(''), line('.'), col('.')]
-	  call  s:edit(targetFile)
+	  call s:open(targetFile)
     let tags = cdef#getTags()
     let prototypes = cdef#getTagProtoAndFunc(tags)
 
@@ -2121,4 +2154,3 @@ function! cdef#trim(s, ...) abort
   if !noRight|let res = matchstr(res, '\v.{-}\ze\s*$')|endif
   return res
 endfunction
-
