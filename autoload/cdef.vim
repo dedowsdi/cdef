@@ -692,7 +692,7 @@ function! cdef#getProtoFromFunc(tag) abort
   return result
 endfunction
 
-function! cdef#locateNamespaceFirstSlot(namespaces)
+function! cdef#locateNamespaceFirstSlot(namespaces) abort
   let oldpos = getpos('.')
   try
     for namespace in a:namespaces
@@ -716,7 +716,7 @@ function! cdef#locateNamespaceFirstSlot(namespaces)
   endtry
 endfunction
 
-function! cdef#addEndToGlobalUsings(usings)
+function! cdef#addEndToGlobalUsings(usings) abort
   for using in a:usings
     if !has_key(using, 'scope') " globe using
       let using['end'] = line('$')
@@ -726,7 +726,7 @@ function! cdef#addEndToGlobalUsings(usings)
       "else " unknown scope
         "let using['end'] = line('$')
       "endif
-    "endif
+    endif
   endfor
 endfunction
 
@@ -1862,58 +1862,62 @@ function! s:mvFuncToProto(proto, func) abort
 endfunction
 
 function! cdef#mvFunc() abort
-  let tags = cdef#getTags()
-  let t0 = cdef#findTag(tags, line('.'))
-  if t0 == {} || (t0.kind !=# 'prototype' && t0.kind !=# 'function')
-    return
-  endif
-
-  call cdef#getFuncDetail(t0)
-  let t1 = cdef#searchMatch(t0, tags)
-  if t1 != {}
-    call cdef#getFuncDetail(t1)
-  endif
-
-  if t0.kind ==# 'prototype'
-    if t1 == {}
-      call s:notify('not defined yet, nothing to mvoe') | return
+  try
+    let blc = [bufnr(''), line('.'), col('.')]
+    let tags = cdef#getTags()
+    let t0 = cdef#findTag(tags, line('.'))
+    if t0 == {} || (t0.kind !=# 'prototype' && t0.kind !=# 'function')
+      return
     endif
-    call s:mvFuncToProto(t0, t1)
-  else
+
+    call cdef#getFuncDetail(t0)
+    let t1 = cdef#searchMatch(t0, tags)
     if t1 != {}
-      call s:mvFuncToProto(t1, t0)
+      call cdef#getFuncDetail(t1)
+    endif
+
+    if t0.kind ==# 'prototype'
+      if t1 == {}
+        call s:notify('not defined yet, nothing to mvoe') | return
+      endif
+      call s:mvFuncToProto(t0, t1)
     else
-      if cdef#isInSrc()
-        call s:notify('found no prototype, no where to move')
-        return
+      if t1 != {}
+        call s:mvFuncToProto(t1, t0)
       else
-        " get body, change function to prorotype, then define it, change the
-        " body back to original
-        let funcBody = s:getBlock(t0.body)
-        call s:rmBlock(t0.body)
-        call cursor(t0.body[0])
-        if col('.') == 1
-          normal! k
-        endif
-        normal! A;
-        w
-        call cdef#define(t0.line, t0.line)
-        let t1 = cdef#getTagAtLine()
-        if t1 == {}
-          call s:fatel('found no tag after redefine  ' + cdef#getPrototypeString(t0))
+        if cdef#isInSrc()
+          call s:notify('found no prototype, no where to move')
           return
+        else
+          " get body, change function to prorotype, then define it, change the
+          " body back to original
+          let funcBody = s:getBlock(t0.body)
+          call s:rmBlock(t0.body)
+          call cursor(t0.body[0])
+          if col('.') == 1
+            normal! k
+          endif
+          normal! A;
+          w
+          call cdef#define(t0.line, t0.line)
+          let t1 = cdef#getTagAtLine()
+          if t1 == {}
+            call s:fatel('found no tag after redefine  ' + cdef#getPrototypeString(t0))
+            return
+          endif
+          " replace definition body with original body
+          call cdef#getFuncDetail(t1)
+          call cursor(t1.body[0][0] - 1, 1)
+          call s:rmBlock(t1.body)
+          call append(line('.'), funcBody)
+          execute printf('normal! =%dj', len(funcBody))
+          w
         endif
-        " replace definition body with original body
-        call cdef#getFuncDetail(t1)
-        call cursor(t1.body[0][0] - 1, 1)
-        call s:rmBlock(t1.body)
-        call append(line('.'), funcBody)
-        execute printf('normal! =%dj', len(funcBody))
-        w
       endif
     endif
-  endif
-
+  finally
+    exec printf('buffer %d', blc[0]) | call cursor(blc[1], blc[2])
+  endtry
 endfunction
 
 " Rename prototype name or function local variable
@@ -2102,9 +2106,13 @@ function! cdef#addHeadGate() abort
   keepjumps normal! ggjj
 endfunction
 
+" opts.style:
+"   0 : generate getA()/setA()/toggleA() for mA, a()/a()/toggle_a() for m_a
+"   1 : generate getA/setA/toggleA()
+"   2 : generate a()/a()/toggle_a()
 function! cdef#genGetSet(...) abort
   let opts = get(a:000, 0, {})
-  call extend(opts, {'const':0, 'register':'g', 'entries':'gs'}, 'keep')
+  call extend(opts, {'const':0, 'register':'g', 'entries':'gs', 'style':0}, 'keep')
   " q-args will pass empty register
   if opts.register ==# ''
     let opts.register = 'g'
@@ -2119,23 +2127,38 @@ function! cdef#genGetSet(...) abort
   let varName = matchstr(str,  '\v<\w+>\ze\s*[;\=,]')
 
   let argType = opts.const ? 'const '.varType.'&':varType
-  let funcPostName = varName
-  "remove m from mName
-  if funcPostName[0] ==# 'm' && cdef#isUppercase(funcPostName[1])
-    let funcPostName = funcPostName[1:]
+  let fname = varName
+  let style = 2
+  if len(fname) >= 2 && fname[0:1] =~# '\vm[A-Z]'
+    "remove m from mName
+    let fname = fname[1:]
+    let style = opts.style == 2 ? 2 : 1
+  elseif len(fname) >= 3 && fname[0:1] ==# 'm_'
+    let fname = fname[2:]
+    let style = opts.style == 1 ? 1 : 2
   endif
-  "make sure 1st character is upper case
-  let funcPostName = toupper(funcPostName[0]) . funcPostName[1:]
+
+  if style == 1
+    "make sure 1st character uppercase
+    let fname = toupper(fname[0]) . fname[1:]
+    let gfname = 'get' . fname
+    let sfname = 'set' . fname
+    let tfname = 'toggle' . fname
+  else
+    let gfname = fname
+    let sfname = fname
+    let tfname = 'toggle_' . fname
+  endif
 
   "generate get set toggle
   if stridx(opts.entries, 'g') !=# -1
-    let res = argType.' get'.funcPostName.'() const { return '.varName."; }\n"
+    let res = printf("%s %s() const { return %s; }\n", argType, gfname, varName)
   endif
   if stridx(opts.entries, 's') !=# -1
-    let res .= 'void set'.funcPostName.'( '.argType.' v){'.varName." = v;}\n"
+    let res .= printf("void %s(%s v){ %s = v; }\n", sfname, argType, varName)
   endif
   if stridx(opts.entries, 't') != -1
-    let res .= 'void toggle'.funcPostName.'() { '.varName.' = !'. varName . "; }\n"
+    let res .= printf("void toggle%s() { %s = !%s; }\n", tfname, varName, varName)
   endif
 
   exec 'let @'.opts.register.' = res'
