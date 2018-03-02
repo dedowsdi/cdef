@@ -1826,7 +1826,7 @@ function! cdef#genFuncDefHead(prototype, nsFullName, ...) abort
       endif
     endif
 
-    let scope .= get(a:prototype.class, 'template', '')
+    let scope .= substitute(get(a:prototype.class, 'template', ''), '\v<typename>\s*|<class>\s*', '', '')
 
     " ctag always add extra blank after operator, it 'changed' function name
     if stridx(a:prototype.name, 'operator') == 0

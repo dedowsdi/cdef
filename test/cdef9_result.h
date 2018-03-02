@@ -107,7 +107,7 @@ namespace n1
 
 //--------------------------------------------------------------------
 template<typename T>
-void n1_B<typename T>::n1_B_p0(int i)
+void n1_B<T>::n1_B_p0(int i)
 {
 	//@TODO implement
 	throw new std::runtime_error("unimplemented template<typename T>n1::n1_B::n1_B_p0(int i) called");
@@ -115,7 +115,7 @@ void n1_B<typename T>::n1_B_p0(int i)
 
 //--------------------------------------------------------------------
 template<typename T>
-void n1_B<typename T>::n1_B_p1(float f)
+void n1_B<T>::n1_B_p1(float f)
 {
 	//@TODO implement
 	throw new std::runtime_error("unimplemented template<typename T>n1::n1_B::n1_B_p1(float f) called");
