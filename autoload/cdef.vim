@@ -844,7 +844,8 @@ function! cdef#searchMatch(t0, tags0) abort
   let altFile = cdef#getSwitchFile()
   if len(altFile) == 0 | return {} | endif
 
-  let ctagCmd = printf('%s%s | grep -P ''^%s|using''',g:cdefCtagCmdPre, altFile, reName)
+  let ctagCmd = printf('%s%s | grep -P ''^%s|\busing\b|\d+;"\s+(class|struct|namespace)\b|'''
+        \ ,g:cdefCtagCmdPre, altFile, reName)
   let tags1 = cdef#getTags(ctagCmd)
   let usings1 = cdef#getTagUsings(tags1)
   let pattern = s:getUsedNamespacePattern(usings0 + usings1)
@@ -1002,8 +1003,6 @@ endfunction
 
 function! cdef#cmpProtoAndFunc(t0, t1, pattern) abort
   if a:t0.name == a:t1.name 
-      " 
-    "ctag include default value in signature
     
     let scope0 = get(a:t0, 'scope', '')
     let scope1 = get(a:t1, 'scope', '')
@@ -1024,7 +1023,8 @@ function! cdef#cmpProtoAndFunc(t0, t1, pattern) abort
       return 0
     endif
 
-    if cdef#getTemplate(a:t0) != cdef#getTemplate(a:t1)
+    if substitute(cdef#getTemplate(a:t0), '\v<class>', 'typename', 'g') != 
+          \ substitute(cdef#getTemplate(a:t1), '\v<class>', 'typename', 'g')
       call s:printCmpResult('compare template failed', a:t0, a:t1)
       return 0
     endif
