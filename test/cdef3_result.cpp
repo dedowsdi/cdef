@@ -21,3 +21,10 @@ void p2(int i/* = 5*/, const std::string& s/* = std::string(5, 'x')*/)
 	//@TODO implement
 	throw new std::runtime_error("unimplemented p2(int i,const std::string & s) called");
 }
+
+//--------------------------------------------------------------------
+void A::m0(const std::string&) const
+{
+	//@TODO implement
+	throw new std::runtime_error("unimplemented A::m0(const std::string & s) const:const called");
+}

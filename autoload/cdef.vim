@@ -936,6 +936,10 @@ function! cdef#cmpSig(s0, s1) abort
     return 1
   endif
 
+  if xor(a:s0[-5:-1] ==# 'const', a:s1[-5:-1] ==# 'const')
+    return 0
+  endif
+
   let l0 = split(a:s0, ',')
   let l1 = split(a:s1, ',')
 
@@ -943,6 +947,12 @@ function! cdef#cmpSig(s0, s1) abort
   if len(l0) != len(l1) 
     return 0
   endif
+
+  " trim ()
+  let l0[0] = l0[0][stridx(l0[0], '(')+1]
+  let l0[-1] = l0[-1][0 : stridx(l0[-1], ')') - 1]
+  let l1[0] = l1[0][stridx(l1[0], '(')+1]
+  let l1[-1] = l1[-1][0 : stridx(l1[-1], ')') - 1]
 
   " compare arg one by one
   for i in range(len(l0))
@@ -954,7 +964,8 @@ function! cdef#cmpSig(s0, s1) abort
 
     " check arg without name
     " assume if two arguments are the same type, than one starts with the other,
-    " and the remain part has to be \s+identifier
+    " and the remain part has to be \s+identifier or \s*identifier if smaller
+    " one ends with [*&]
     if len(arg0) > len(arg1)
       let big = arg0
       let small = arg1
@@ -963,8 +974,12 @@ function! cdef#cmpSig(s0, s1) abort
       let small = arg0
     endif
 
-    if stridx(big, small) == 0 && big[len(small):] =~# '\v\s+\w+'
-      continue
+    if stridx(big, small) == 0
+      if small[-1:-1] =~# '\v[*&]' && big[len(small):] =~# '\v\s*\w+'
+        continue
+      elseif big[len(small):] =~# '\v\s+\w+'
+        continue
+      endif
     endif
 
     " check arg with different name
