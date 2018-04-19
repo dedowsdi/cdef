@@ -1,4 +1,5 @@
 #include <isotream>
+#include <vector>
 
 inline void gp0();
 
@@ -40,6 +41,11 @@ namespace n1 {
     void n1_A_f1()
     {
     }
+  };
+
+  template<typename T = std::vector<int> >
+  class B{
+    void n1_B_p0();
   };
 }
 

@@ -3,7 +3,7 @@ if exists('g:loaded_cdef')
 endif
 let g:loaded_cdef = 1
 
-let g:cdefCtagCmdPre = 'ctags -f - --excmd=number --sort=no --fields=KsSiea
+let g:cdefCtagCmdPre = 'ctags 2>/dev/null -f - --excmd=number --sort=no --fields=KsSiea
 			\ --fields-c++=+{properties}{template} --kinds-c++=+pNU --language-force=c++ '
 let g:cdefDefaultSourceExtension = get(g: , 'cdefDefaultSourceExtension', 'cpp')
 let s:srcExts = ['c', 'cpp', 'cxx', 'cc', 'inl']
@@ -555,7 +555,7 @@ endfunction
 "([line])
 function! cdef#getTagAtLine(...) abort
   let lnum = get(a:000, 0, line('.'))
-  let ctagCmd = g:cdefCtagCmdPre . expand('%:p') . ' | grep -P ''\t'.lnum.''';'
+  let ctagCmd = g:cdefCtagCmdPre . expand('%:p') . ' | grep -P ''\t'.lnum.';"'''
   let tags = cdef#getTags(ctagCmd)
   return cdef#findTag(tags, lnum)
 endfunction
@@ -926,7 +926,7 @@ function! cdef#getTemplate(tag) abort
   endif
 
   "let template = substitute(template, '\v\zs\s*\=.{-}\ze[,>]', '', 'g')
-  let template = cdef#handleDefaultValue(template , '>', '0')
+  let template = cdef#handleDefaultValue(template , '>', 1)
   
   return template
 endfunction
@@ -1692,15 +1692,10 @@ function! cdef#handleDefaultValue(str, boundary, operation) abort
 
   let dvs = []  " [[startPos, endPos], ...]
 
-  let pairClose = '">)]}'
-  let matching = []  " pos stack for current open stuff
+  let openPairs = '<([{"'
+  let closePairs = '>)]}"'
 
-  " 0 : find , ) for =, 1 : find matching pair for "(<[{
-  let stage = 0
-
-  "" search, or ), ignore "", (), <>, {}, [] pair
-  let target0 = printf(',%s"<([{', a:boundary) " current search target
-  let pattern0 = printf('\v[%s]', target0)
+  let target = printf(',%s', a:boundary)
 
   " get =, ignore staff like != positions
   while 1
@@ -1709,64 +1704,18 @@ function! cdef#handleDefaultValue(str, boundary, operation) abort
       break
     endif
 
-    let pos = frag[2] - 1
-    
-    let target = target0
-    let pattern = pattern0
+    let start = frag[2]
+    let pos = myvim#searchOverPairs(a:str, start, target, openPairs, closePairs, 'l')
 
-    while 1
-      let pos = match(a:str, pattern, pos + 1)
+    if pos == -1  && a:boundary == '>'
+      " universal-ctags failed to parse template with default template value:
+      " template<typename T = vector<int> > class ...
+      " the last > will be ignored by ctags
+      let pos = len(a:str) - 1
+    endif
 
-      if pos == -1 
+    let dvs += [ [frag[1], pos-1] ]
 
-        if stage == 0
-          echoe printf('found no, or boundary for = at %d : %s', frag[2] - 1 , a:str)
-          return a:str
-        else
-          echoe printf('found no matching %s for %s, at %d : %s', target[1], target[0], matching[-1],  a:str)
-          return a:str
-        endif
-
-      else
-
-        let idx = stridx(target, a:str[pos])
-
-        if stage == 0
-          if idx <= 1
-            " found , or boundary
-            let dvs += [ [frag[1], pos - 1]]
-            break
-          endif
-
-          " found <, [, {, ", change stage
-          let stage = 1
-          let stack = 1
-          " set target to <> or () or [] or {}
-          let target = a:str[pos] . pairClose[idx - 2]
-          let matching += [pos]
-          let pattern = printf('\v[%s]', escape(target, ']'))
-          continue
-        endif
-
-        if idx == 0 && target[0] !=# '"'
-          " another same open stuff need to be matched
-          let stack += 1
-          let matching += [pos]
-          continue
-        endif
-
-        let stack -= 1
-        call remove(matching, -1)
-        if stack == 0
-          " all open stuff closed, switch stage
-          let pattern = pattern0
-          let target = target0
-          let stage = 0
-        endif
-
-      endif
-
-    endwhile
   endwhile
 
   if empty(dvs)
@@ -1781,6 +1730,11 @@ function! cdef#handleDefaultValue(str, boundary, operation) abort
       let pos = pair[1] + 1
     endfor
     let resStr .= a:str[pos : ]
+
+    if a:boundary ==# '>' && resStr[ len(resStr)-1 ] != '>'
+      let resStr .= '>'
+    endif
+
     return resStr
   else
     let resStr = ''
@@ -1790,6 +1744,11 @@ function! cdef#handleDefaultValue(str, boundary, operation) abort
       let pos = pair[1] + 1
     endfor
     let resStr .= a:str[pos : ]
+
+    if a:boundary ==# '>' && resStr[ len(resStr)-1 ] != '>'
+      let resStr .= '>'
+    endif
+
     return resStr
   endif
 
@@ -1817,13 +1776,14 @@ function! cdef#genFuncDefHead(prototype, nsFullName, ...) abort
     let funcHeadList[i] = substitute(funcHeadList[i], '\v^\s*', '', '')
   endfor
 
+
   let funcHead = join(funcHeadList, "\n")
   if cdef#hasProperty(a:prototype, 'static')
     let funcHead = substitute(funcHead, '\v\s*\zs<static>\s*', '', '')
   endif
 
   "comment default value, must be called before remove trailing
-  let funcHead = cdef#handleDefaultValue(funcHead, ')', '0')
+  let funcHead = cdef#handleDefaultValue(funcHead, ')', 0)
   "remove static or virtual
   let funcHead = substitute(funcHead, '\vstatic\s*|virtual\s*', '', '' )
   "remove trailing
@@ -1841,7 +1801,11 @@ function! cdef#genFuncDefHead(prototype, nsFullName, ...) abort
       endif
     endif
 
-    let scope .= substitute(get(a:prototype.class, 'template', ''), '\v<typename>\s*|<class>\s*', '', '')
+    if has_key(a:prototype.class, 'template')
+      let template = cdef#handleDefaultValue(a:prototype.class.template, '>', 1)
+      let scope .= substitute(template, '\v<typename>\s*|<class>\s*', '', '')
+      let funcHead = printf("template%s\n%s", template, funcHead)
+    endif
 
     " ctag always add extra blank after operator, it 'changed' function name
     if stridx(a:prototype.name, 'operator') == 0
@@ -1850,10 +1814,6 @@ function! cdef#genFuncDefHead(prototype, nsFullName, ...) abort
       let funcHead = substitute(funcHead, '\V\(\s\|\^\)\zs'.a:prototype.name.'\>', scope.'::\0', '')
     endif
 
-    " add class template
-    if has_key(a:prototype.class, 'template')
-      let funcHead = printf("template%s\n%s", a:prototype.class.template, funcHead)
-    endif
   endif
 
   let arr = split(funcHead, "\n")

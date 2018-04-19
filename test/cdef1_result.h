@@ -1,4 +1,5 @@
 #include <isotream>
+#include <vector>
 
 inline void gp0();
 
@@ -70,6 +71,11 @@ namespace n1 {
     }
   };
 
+  template<typename T = std::vector<int> >
+  class B{
+    void n1_B_p0();
+  };
+
 //--------------------------------------------------------------------
 template<typename T>
 void A<T>::n1_A_p0()
@@ -84,6 +90,14 @@ void A<T>::n1_A_p1()
 {
 	//@TODO implement
 	throw new std::runtime_error("unimplemented template<typename T>n1::A::n1_A_p1() called");
+}
+
+//--------------------------------------------------------------------
+template<typename T>
+void B<T>::n1_B_p0()
+{
+	//@TODO implement
+	throw new std::runtime_error("unimplemented template<typename T>n1::B::n1_B_p0() called");
 }
 }
 
