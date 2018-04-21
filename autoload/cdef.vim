@@ -160,9 +160,11 @@ function! s:strToTag(str) abort
   let l = split(a:str, "\t")
   let d = {'name':l[0], 'file':l[1], 'line':str2nr(l[2][:-3]), 'kind':l[3]}
 
-  " always use class
+  " always use class and function
   if d.kind ==#'struct'
     let d.kind = 'class'
+  elseif d.kind ==# 'slot'
+    let d.kind = 'prototype'
   endif
 
   for item in l[4:]
@@ -949,9 +951,9 @@ function! cdef#cmpSig(s0, s1) abort
   endif
 
   " trim ()
-  let l0[0] = l0[0][stridx(l0[0], '(')+1]
+  let l0[0] = l0[0][stridx(l0[0], '(')+1 : ]
   let l0[-1] = l0[-1][0 : stridx(l0[-1], ')') - 1]
-  let l1[0] = l1[0][stridx(l1[0], '(')+1]
+  let l1[0] = l1[0][stridx(l1[0], '(')+1 : ]
   let l1[-1] = l1[-1][0 : stridx(l1[-1], ')') - 1]
 
   " compare arg one by one
