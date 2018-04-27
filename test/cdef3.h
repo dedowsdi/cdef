@@ -12,3 +12,9 @@ public:
   void m0(const std::string& s) const;
 };
 
+namespace n0{
+  class State{
+    std::string& operator[](const std::string& key);
+  };
+}
+

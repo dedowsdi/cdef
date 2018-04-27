@@ -28,3 +28,10 @@ void A::m0(const std::string&) const
 	//@TODO implement
 	throw new std::runtime_error("unimplemented A::m0(const std::string & s) const:const called");
 }
+
+//--------------------------------------------------------------------
+std::string& n0::State::operator[] (const std::string& key)
+{
+	//@TODO implement
+	throw new std::runtime_error("unimplemented n0::State::operator [](const std::string & key) called");
+}

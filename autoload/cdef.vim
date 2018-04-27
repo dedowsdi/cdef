@@ -158,7 +158,19 @@ endfunction
 
 function! s:strToTag(str) abort
   let l = split(a:str, "\t")
+
+  if len(l) < 3
+    echom 'failed to parse "' . a:str . "'"
+    return {}
+  endif
+
   let d = {'name':l[0], 'file':l[1], 'line':str2nr(l[2][:-3]), 'kind':l[3]}
+  " name of
+  "   int operator[] (...) will 
+  " will contain trailing space, it must be removed
+  if d.name[len(d.name) - 1] ==# ' '
+    let d.name = d.name[0 : len(d.name)-2 ]
+  endif
 
   " always use class and function
   if d.kind ==#'struct'
@@ -860,8 +872,8 @@ function! cdef#searchMatch(t0, tags0) abort
   let pattern = s:getUsedNamespacePattern(usings0 + usings1)
 
   for t1 in tags1
-    if t1.kind == a:t0.kind || (t1.kind !=# 'prototype' && t1.kind !=# 'function') | continue | endif
-    if t1.name == a:t0.name && cdef#cmpProtoAndFunc(a:t0, t1, pattern)
+    if t1.kind ==# a:t0.kind || (t1.kind !=# 'prototype' && t1.kind !=# 'function') | continue | endif
+    if t1.name ==# a:t0.name && cdef#cmpProtoAndFunc(a:t0, t1, pattern)
       return t1
     endif
   endfor
@@ -1026,13 +1038,13 @@ function! s:printCmpResult(desc, t0, t1) abort
 endfunction
 
 function! cdef#cmpProtoAndFunc(t0, t1, pattern) abort
-  if a:t0.name == a:t1.name 
+  if a:t0.name ==# a:t1.name 
     
     let scope0 = get(a:t0, 'scope', '')
     let scope1 = get(a:t1, 'scope', '')
     let sscope0 = substitute(scope0.'::', a:pattern, '', '') "stripped scope 0
     let sscope1 = substitute(scope1.'::', a:pattern, '', '')
-    if !(scope0 == scope1 || scope0 == sscope1 || sscope0 == scope1 || sscope0 == sscope1)
+    if !(scope0 ==# scope1 || scope0 ==# sscope1 || sscope0 ==# scope1 || sscope0 ==# sscope1)
       call s:printCmpResult('compare scope failed', a:t0, a:t1)
       return 0
     endif
@@ -1047,7 +1059,7 @@ function! cdef#cmpProtoAndFunc(t0, t1, pattern) abort
       return 0
     endif
 
-    if substitute(cdef#getTemplate(a:t0), '\v<class>', 'typename', 'g') != 
+    if substitute(cdef#getTemplate(a:t0), '\v<class>', 'typename', 'g') !=# 
           \ substitute(cdef#getTemplate(a:t1), '\v<class>', 'typename', 'g')
       call s:printCmpResult('compare template failed', a:t0, a:t1)
       return 0
