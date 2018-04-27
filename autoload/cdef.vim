@@ -163,8 +163,6 @@ function! s:strToTag(str) abort
   " always use class and function
   if d.kind ==#'struct'
     let d.kind = 'class'
-  elseif d.kind ==# 'slot'
-    let d.kind = 'prototype'
   endif
 
   for item in l[4:]
@@ -484,7 +482,16 @@ function! cdef#getTags(...) abort
   let classStack = [{}]
 
   for item in l
+
     let tag = s:strToTag(item)
+    if tag.kind ==# 'slot'
+      continue
+    elseif tag.kind ==# 'signal'
+      " ignore signal prototype, which always fallowed by a signal kind tag
+      call remove(tags, -1)
+      continue
+    endif
+
     let tags += [tag]
 
     while namespaceStack[-1].end < tag.line

@@ -1,4 +1,5 @@
 " define test:
+
 "   copy cdef#.h, cdef#.cpp as test#.h, test#.cpp, after cdef#defineFile test#.h
 "   should be 100% the same as cdef_result.h, test#.cpp 100% the same as
 "   cdef#_result.cpp
