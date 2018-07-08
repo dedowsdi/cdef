@@ -18,7 +18,7 @@ command! -nargs=* -complete=file_in_path Ccpp :call cdef#copyPrototype(<f-args>)
 command! -nargs=0 Crmf :call cdef#mvFunc()
 command! -nargs=0 Crrmf :call cdef#rmFunc()
 
-command! -nargs=0 Cnh :call cdef#addHeadGate()
+command! -nargs=0 Cnh :call cdef#addHeadGuard()
 command! -nargs=? Cngs :call cdef#genGetSet({"register":<q-args>, "entries":"gs"})
 command! -nargs=? Cngst :call cdef#genGetSet({"register":<q-args>, "entries":"gst"})
 command! -nargs=? Cncgs :call cdef#genGetSet({"const":1, "register":<q-args>, "entries":"gs"})

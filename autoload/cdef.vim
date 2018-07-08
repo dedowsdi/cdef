@@ -1054,6 +1054,14 @@ function! cdef#cmpProtoAndFunc(t0, t1, pattern) abort
     let ssig0 = substitute(sig0, a:pattern, '', '') "stripped sig 0
     let ssig1 = substitute(sig1, a:pattern, '', '')
 
+    if a:t0.namespace.name !=# a:t1.namespace.name
+      if s:isNamespaceGlobal(a:t0.namespace)
+        let ssig0 = substitute(ssig0, printf('\v(::)@<!<%s>::', a:t1.namespace.name) , '', 'g')
+      elseif s:isNamespaceGlobal(a:t1.namespace)
+        let ssig1 = substitute(ssig1, printf('\v(::)@<!<%s>::', a:t0.namespace.name) , '', 'g')
+      endif
+    endif
+
     if !(cdef#cmpSig(sig0, sig1) || cdef#cmpSig(sig0, ssig1) || cdef#cmpSig(ssig0, sig1) || cdef#cmpSig(ssig0, ssig1)) 
       call s:printCmpResult('compare signature failed', a:t0, a:t1)
       return 0
@@ -2093,7 +2101,7 @@ function! cdef#copyPrototype(file, ...) abort
   endif
 endfunction
 
-function! cdef#addHeadGate() abort
+function! cdef#addHeadGuard() abort
   let gatename = substitute(toupper(expand('%:t')), "\\.", '_', 'g')
   exec 'keepjumps normal! ggO#ifndef ' . gatename
   exec 'normal! o#define ' . gatename

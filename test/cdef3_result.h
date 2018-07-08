@@ -12,3 +12,21 @@ public:
   void m0(const std::string& s) const;
 };
 
+namespace n0{
+  class State{
+
+  public:
+
+    enum SS{
+      SS_A,
+      SS_B
+    };
+
+    std::string& operator[](const std::string& key);
+  };
+
+  class Foo{
+    State::SS foo(State::SS s);
+  };
+}
+
