@@ -360,43 +360,39 @@ function! cdef#getSwitchDir() abort
     let altDir = l[1] . 'include' . l[3]
   endif
   let altDir .= '/'
-  return altDir
+
+  " sometimes, .h and .cpp resides in the same src or include
+  return [altDir, dirPath.'/']
 endfunction
 
 function! cdef#getSwitchFile() abort
-  let altDir = cdef#getSwitchDir()
+  let altDirs = cdef#getSwitchDir()
   let altExts = cdef#isInHead() ? s:srcExts : s:headExts
   let baseName = expand('%:t:r')
 
-  for ext in altExts
-    let altFile = altDir.baseName
-    if ext !=# ''
-      let altFile .= '.' . ext
-    endif
+  for altDir in altDirs
+    for ext in altExts
+      let altFile = altDir.baseName
+      if ext !=# ''
+        let altFile .= '.' . ext
+      endif
 
-    if filereadable(altFile)
-      return altFile
-    endif
+      if filereadable(altFile)
+        return altFile
+      endif
+    endfor
   endfor
+
   return ''
 endfunction
 
 function! cdef#switchFile(...) abort
 
   let keepjumps = get(a:000, 0, 0)
-  let cmdPre = keepjumps ? 'keepjumps ' : ''
+  let cmdPre = keepjumps ? "keepjumps " : ""
 
-  let altDir = cdef#getSwitchDir()
-
-  let altExts = cdef#isInHead() ? s:srcExts : s:headExts
-  let baseName = expand('%:t:r')
-
-  "check if it exists
-  for ext in altExts
-    let altFile = altDir.baseName
-    if ext !=# ''
-      let altFile .= '.' . ext
-    endif
+  let altFile = cdef#getSwitchFile()
+  if altFile != ''
     if bufexists(altFile)
       let bnr = bufnr(altFile) | exec cmdPre . 'buffer ' .  bnr
       return 1
@@ -404,19 +400,21 @@ function! cdef#switchFile(...) abort
       silent! exec cmdPre . 'edit ' . altFile
       return 1
     endif
-  endfor
+  endif
+
+  call s:notify("alternate file doesn't exist or can't be read")
 
   "not found
-  if cdef#isInHead()
-    let file = printf('%s%s.%s', altDir, baseName, g:cdefDefaultSourceExtension)
-    echo system(printf('echo ''#include "%s"''>%s', expand('%:t'), file))
-    exec 'edit ' . file
-    silent exec
-    return 1
-  else
-    call s:notify('no head file to switch')
-    return 0
-  endif
+  "if cdef#isInHead()
+    "let file = printf('%s%s.%s', altDir, baseName, g:cdefDefaultSourceExtension)
+    "echo system(printf('echo ''#include "%s"''>%s', expand('%:t'), file))
+    "exec 'edit ' . file
+    "silent exec
+    "return 1
+  "else
+    "call s:notify('no head file to switch')
+    "return 0
+  "endif
 endfunction
 
 function! cdef#printAccessSpecifier(...) abort
