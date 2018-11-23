@@ -3,8 +3,9 @@ if exists('g:loaded_cdef')
 endif
 let g:loaded_cdef = 1
 
+let g:cdefMacros = get(g:, 'cdefMacros', ' -D "META_Object(library,name)=" ')
 let g:cdefCtagCmdPre = 'ctags 2>/dev/null -f - --excmd=number --sort=no --fields=KsSiea
-			\ --fields-c++=+{properties}{template} --kinds-c++=+pNU --language-force=c++ '
+			\ --fields-c++=+{properties}{template} --kinds-c++=+pNU --language-force=c++ ' . g:cdefMacros
 let g:cdefDefaultSourceExtension = get(g: , 'cdefDefaultSourceExtension', 'cpp')
 let s:srcExts = ['c', 'cpp', 'cxx', 'cc', 'inl']
 let s:headExts = ['h', 'hpp', '']
