@@ -7,6 +7,7 @@ let g:cdefMacros = get(g:, 'cdefMacros', ' -D "META_Object(library,name)=" ')
 let g:cdefCtagCmdPre = 'ctags 2>/dev/null -f - --excmd=number --sort=no --fields=KsSiea
 			\ --fields-c++=+{properties}{template} --kinds-c++=+pNU --language-force=c++ ' . g:cdefMacros
 let g:cdefDefaultSourceExtension = get(g: , 'cdefDefaultSourceExtension', 'cpp')
+let g:cdefProjName = get(g:, 'cdefProjName', '')
 let s:srcExts = ['c', 'cpp', 'cxx', 'cc', 'inl']
 let s:headExts = ['h', 'hpp', '']
 
@@ -390,10 +391,10 @@ endfunction
 function! cdef#switchFile(...) abort
 
   let keepjumps = get(a:000, 0, 0)
-  let cmdPre = keepjumps ? "keepjumps " : ""
+  let cmdPre = keepjumps ? 'keepjumps ' : ''
 
   let altFile = cdef#getSwitchFile()
-  if altFile != ''
+  if altFile !=# ''
     if bufexists(altFile)
       let bnr = bufnr(altFile) | exec cmdPre . 'buffer ' .  bnr
       return 1
@@ -1735,7 +1736,7 @@ function! cdef#handleDefaultValue(str, boundary, operation) abort
     let start = frag[2]
     let pos = myvim#searchOverPairs(a:str, start, target, openPairs, closePairs, 'l')
 
-    if pos == -1  && a:boundary == '>'
+    if pos == -1  && a:boundary ==# '>'
       " universal-ctags failed to parse template with default template value:
       " template<typename T = vector<int> > class ...
       " the last > will be ignored by ctags
@@ -1759,7 +1760,7 @@ function! cdef#handleDefaultValue(str, boundary, operation) abort
     endfor
     let resStr .= a:str[pos : ]
 
-    if a:boundary ==# '>' && resStr[ len(resStr)-1 ] != '>'
+    if a:boundary ==# '>' && resStr[ len(resStr)-1 ] !=# '>'
       let resStr .= '>'
     endif
 
@@ -1773,7 +1774,7 @@ function! cdef#handleDefaultValue(str, boundary, operation) abort
     endfor
     let resStr .= a:str[pos : ]
 
-    if a:boundary ==# '>' && resStr[ len(resStr)-1 ] != '>'
+    if a:boundary ==# '>' && resStr[ len(resStr)-1 ] !=# '>'
       let resStr .= '>'
     endif
 
@@ -2101,7 +2102,15 @@ function! cdef#copyPrototype(file, ...) abort
 endfunction
 
 function! cdef#addHeadGuard() abort
-  let gatename = substitute(toupper(expand('%:t')), "\\.", '_', 'g')
+  let dirname = expand('%:p:h:t')
+  if dirname ==# 'include' || dirname ==# 'inc'
+    let dirname = expand('%:p:h:h:t')
+  endif
+  let gatename = printf('%s_%s', dirname, substitute(expand('%:t'), "\\.", '_', 'g'))
+  if g:cdefProjName !=# ''
+    let gatename = g:cdefProjName . '_' . gatename
+  endif
+  let gatename = toupper(gatename)
   exec 'keepjumps normal! ggO#ifndef ' . gatename
   exec 'normal! o#define ' . gatename
   exec 'normal! o'
