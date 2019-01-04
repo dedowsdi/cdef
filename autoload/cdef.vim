@@ -463,6 +463,10 @@ function! cdef#isPure(tag) abort
   return cdef#hasProperty(a:tag, 'pure')
 endfunction
 
+function! cdef#isDeleted(tag) abort
+  return cdef#hasProperty(a:tag, 'delete')
+endfunction
+
 function! cdef#isInline(tag) abort
   return cdef#hasProperty(a:tag, 'inline')
 endfunction
@@ -484,7 +488,7 @@ function! cdef#hasTemplate(tag) abort
 endfunction
 
 function! cdef#getTags(...) abort
-  let ctagCmd =  get(a:000, 0, g:cdefCtagCmdPre . expand('%:p')  )
+  let ctagCmd = get(a:000, 0, g:cdefCtagCmdPre . expand('%:p')  )
   let l = systemlist(ctagCmd)
   if !empty(l) && l[0][0:4] ==# 'ctags:'
     throw printf('ctag cmd failed : %s\n. Error message:%s', ctagCmd, string(l))
@@ -553,6 +557,9 @@ function! cdef#splitTags(tags) abort
     elseif tag.kind ==# 'class' || tag.kind ==# 'struct'
       let d.classes += [tag]
     elseif tag.kind ==# 'prototype'
+      if cdef#isDeleted(tag)
+        continue
+      endif
       let d.prototypes += [tag]
     elseif tag.kind ==# 'function'
       let d.functions += [tag]
