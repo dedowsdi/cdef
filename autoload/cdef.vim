@@ -1812,7 +1812,6 @@ function! cdef#genFuncDefHead(prototype, nsFullName, ...) abort
     let funcHeadList[i] = substitute(funcHeadList[i], '\v^\s*', '', '')
   endfor
 
-
   let funcHead = join(funcHeadList, "\n")
   if cdef#hasProperty(a:prototype, 'static')
     let funcHead = substitute(funcHead, '\v\s*\zs<static>\s*', '', '')
@@ -1823,7 +1822,7 @@ function! cdef#genFuncDefHead(prototype, nsFullName, ...) abort
   "remove static or virtual
   let funcHead = substitute(funcHead, '\vstatic\s*|virtual\s*', '', '' )
   "remove trailing
-  let funcHead = substitute(funcHead, '\v\;\s*$', '', '')
+  let funcHead = substitute(funcHead, '\voverride\s*\;\s*$', '', '')
 
   " add scope for class method only
   if a:prototype.class != {}
