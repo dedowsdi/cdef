@@ -31,6 +31,14 @@ void A::m0(const std::string&) const
 
 namespace n0
 {
+
+//--------------------------------------------------------------------
+State& State::operator=(const State& state)
+{
+	//@TODO implement
+	throw new std::runtime_error("unimplemented n0::State::operator =(const State & state) called");
+}
+
 }
 
 //--------------------------------------------------------------------

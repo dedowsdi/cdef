@@ -17,6 +17,8 @@ namespace n0{
 
   public:
 
+    State& operator=(const State& state);
+
     enum SS{
       SS_A,
       SS_B

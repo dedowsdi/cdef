@@ -1722,7 +1722,7 @@ endfunction
 function! cdef#handleDefaultValue(str, boundary, operation) abort
 
   "return substitute(a:str, '\v[^)]{-}\zs\s*\=%(\s*\()@![^,]*\ze(,|\))', a:value, a:flag)
-  let pos = -1
+  let pos = stridx(a:str, '(') " skip operator= before ()
   let size = len(a:str)
   let stack = 0
 
@@ -1822,7 +1822,7 @@ function! cdef#genFuncDefHead(prototype, nsFullName, ...) abort
   "remove static or virtual
   let funcHead = substitute(funcHead, '\vstatic\s*|virtual\s*', '', '' )
   "remove trailing
-  let funcHead = substitute(funcHead, '\voverride\s*\;\s*$', '', '')
+  let funcHead = substitute(funcHead, '\v(override)?\s*\;\s*$', '', '')
 
   " add scope for class method only
   if a:prototype.class != {}

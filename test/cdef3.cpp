@@ -29,6 +29,11 @@ void A::m0(const std::string&) const
 	throw new std::runtime_error("unimplemented A::m0(const std::string & s) const:const called");
 }
 
+namespace n0
+{
+
+}
+
 //--------------------------------------------------------------------
 std::string& n0::State::operator[] (const std::string& key)
 {
