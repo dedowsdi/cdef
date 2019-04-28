@@ -16,6 +16,10 @@ void test_global_anonymous(int);
 
 void test_global_different_name(int a);
 
+void test_global_space_type(unsigned int a);
+
+void test_global_space_type_anomymous(signed long long int, int, unsigned int);
+
 void test_same_sig_different_scope(const std::string& s);
 
 template <typename T>

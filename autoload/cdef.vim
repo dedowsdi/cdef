@@ -376,12 +376,52 @@ function! cdef#getTemplate(tag) abort
   return template
 endfunction
 
+" the order matters, you can't place `singed` before `singed int`, it will
+" produce garbage such as `int int`
+let s:space_types = [
+      \ ['\v<unsigned\s+long\s+long\s+int> ' , 'unsigned_long_long'],
+      \ ['\v<unsigned\s+long\s+long>'        , 'unsigned_long_long'],
+      \
+      \ ['\v<signed\s+long\s+long\s+int>'    , 'long_long'],
+      \ ['\v<signed\s+long\s+long>'          , 'long_long'],
+      \ ['\v<long\s+long\s+int>'             , 'long_long'],
+      \ ['\v<long\s+long>'                   , 'long_long'],
+      \
+      \ ['\v<unsigned\s+long\s+int>'         , 'unsigned_long'],
+      \ ['\v<unsigned\s+long>'               , 'unsigned_long'],
+      \
+      \ ['\v<signed\s+long\s+int>'           , 'long'],
+      \ ['\v<long\s+int>'                    , 'long'],
+      \ ['\v<signed\s+long>'                 , 'long'],
+      \
+      \ ['\v<unsigned\s+short\s+int>'        , 'unsigned_short'],
+      \ ['\v<unsigned\s+short>'              , 'unsigned_short'],
+      \
+      \ ['\v<signed\s+short\s+int>'          , 'short'],
+      \ ['\v<short\s+int>'                   , 'short'],
+      \ ['\v<signed\s+short>'                , 'short'],
+      \
+      \ ['\v<unsigned\s+int>'                , 'unsigned'],
+      \
+      \ ['\v<signed\s+int>'                  , 'int'],
+      \ ['\v<signed>'                        , 'int'],
+      \ ]
+
 function! cdef#cmpSig(s0, s1) abort
   if a:s0 == a:s1 | return 1 | endif
 
   if xor(a:s0[-5:-1] ==# 'const', a:s1[-5:-1] ==# 'const') | return 0 | endif
 
-  let [l0, l1] = [split(a:s0, ','), split(a:s1, ',')]
+  " replace space types
+  let [s0, s1] = [a:s0, a:s1]
+  for [key, value] in s:space_types
+    let s0 = substitute(s0, key, value, 'g')
+    let s1 = substitute(s1, key, value, 'g')
+  endfor
+  " try again after space type replacement
+  if a:s0 == a:s1 | return 1 | endif
+
+  let [l0, l1] = [split(s0, ','), split(s1, ',')]
   if len(l0) != len(l1) | return 0 | endif
 
   " trim ()
@@ -415,12 +455,9 @@ function! cdef#cmpSig(s0, s1) abort
 
     " check arg with different name
     " assume every thing except the identifer is the same.
-    " There will be false positive for something like :
-    "     void (unsigned int);
-    "     void (unsigned short){}
-    "
     let [i0,i1] = [strridx(arg0, ' '), strridx(arg1, ' ')]
-    if i0 == -1 || i1 == -1 | return 0 | endif
+    " returen if either of them is anomymous
+    if i0 == -1 || i1 == -1 | return | endif
     if arg0[0:i0] != arg1[0:i1] | return 0 | endif
     if arg0[i0 :] =~# '\v\w+' && arg1[i1 :] =~# '\v\w+' | continue | endif
 

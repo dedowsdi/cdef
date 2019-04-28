@@ -28,6 +28,14 @@ void test_global_different_name(int b)
 {
 }
 
+void test_global_space_type(unsigned a)
+{
+}
+
+void test_global_space_type_anomymous(long long, signed int, unsigned)
+{
+}
+
 void test_same_sig_different_scope(const std::string& s)
 {
 }
