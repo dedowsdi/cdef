@@ -4,8 +4,8 @@ endif
 let g:loaded_cdef = 1
 
 let g:cdefMacros = get(g:, 'cdefMacros', ' -D "META_Object(library,name)=" ')
-let g:cdefCtagCmdPre = 'ctags 2>/dev/null -f - --excmd=number --sort=no --fields=KsSiea
-    \ --fields-c++=+{properties}{template} --kinds-c++=+pNU --language-force=c++ ' . g:cdefMacros
+let g:cdefCtagCmdPre = 'ctags 2>/dev/null -f - --excmd=number --sort=no --fields=KsSe
+    \ --fields-c++=+{properties}{template} --kinds-c++=ncsfp --language-force=c++ ' . g:cdefMacros
 let g:cdefDefaultSourceExtension = get(g: , 'cdefDefaultSourceExtension', 'cpp')
 let g:cdefProjName = get(g:, 'cdefProjName', '')
 let s:srcExts = ['c', 'cpp', 'cxx', 'cc', 'inl']
@@ -313,7 +313,7 @@ function! cdef#searchFunctions(protoTag, tags, altFile) abort
   let l = s:searchFunctions(a:protoTag, a:tags)
   " search in alternate file
   if !empty(a:altFile)
-    let ctagCmd = printf('%s %s | grep -P ''class|struct|^%s.*\bfunction\b''', g:cdefCtagCmdPre,
+    let ctagCmd = printf('%s %s | grep -P ''namespace|class|struct|^%s.*\bfunction\b''', g:cdefCtagCmdPre,
           \ a:altFile, substitute(a:protoTag.name, '\v[^0-9a-zA-Z \t]', '\\\0', 'g'))
     let l += s:searchFunctions(a:protoTag, cdef#getTags(ctagCmd))
   endif
@@ -334,7 +334,7 @@ function! cdef#searchPrototypes(funcTag, tags0, altFile) abort
   let l = s:searchPrototypes(a:funcTag, a:tags0)
   " search in alternate file
   if !empty(a:altFile)
-    let ctagCmd = printf('%s %s | grep -P ''class|struct|^%s.*\bprototype\b''', g:cdefCtagCmdPre,
+    let ctagCmd = printf('%s %s | grep -P ''namespace|class|struct|^%s.*\bprototype\b''', g:cdefCtagCmdPre,
           \ a:altFile, substitute(a:funcTag.name, '\v[^0-9a-zA-Z \t]', '\\\0', 'g'))
     let l += s:searchPrototypes(a:funcTag, cdef#getTags(ctagCmd))
   endif
