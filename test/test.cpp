@@ -46,15 +46,15 @@ namespace N
   {
   }
 
-  void test_N_C0_reload(int a, int b)
+  void C0::test_N_C0_reload(int a, int b)
   {
   }
 
-  void test_N_C0_reload(int a, int b) const
+  void C0::test_N_C0_reload(int a, int b) const
   {
   }
 
-  void test_N_C0_reload(int a, int b, float c) const
+  void C0::test_N_C0_reload(int a, int b, float c) const
   {
   }
 
@@ -77,4 +77,9 @@ namespace N
     }
   }
 
+}
+
+int main(int argc, char *argv[])
+{
+  return 0;
 }

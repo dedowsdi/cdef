@@ -16,10 +16,10 @@ try
       normal! yt(
       let isTemplate = @" =~# 'template'
       let lnum = line('.')
-      call assert_true(cdef#switchBetProtoAndFunc(), lnum .':'. @")
+      call assert_true(cdef#switchProtoFunc(), lnum .':'. @")
       normal! yt(
       let lnum = line('.')
-      call assert_true(cdef#switchBetProtoAndFunc(), lnum .':'. @")
+      call assert_true(cdef#switchProtoFunc(), lnum .':'. @")
     finally
       normal! `A
     endtry

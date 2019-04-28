@@ -21,6 +21,12 @@ void test_same_sig_different_scope(const std::string& s);
 template <typename T>
 void test_global_template_blank();
 
+template <int Val = 5>
+void test_global_template_default();
+
+template <typename T = std::vector<int>>
+void test_global_template_default_vec();
+
 namespace N
 {
   void test_same_sig_different_scope(const std::string& s);
@@ -48,6 +54,16 @@ namespace N
     void test_N_T0_blank();
   };
 
+  template<typename T = std::vector<int>>
+  class T1
+  {
+  public:
+    void test_N_T1_blank();
+
+    template <typename U>
+    void bug_N_T1_template();
+  };
+
   namespace N_N
   {
     void test_N_N_blank();
@@ -60,7 +76,30 @@ void test_global_template_blank()
 {
 }
 
+template <int Val>
+void test_global_template_default()
+{
+}
+
+//--------------------------------------------------------------------
+template <typename T>
+void test_global_template_default_vec()
+{
+}
+
 template<typename T>
 void N::T0<T>::test_N_T0_blank()
+{
+}
+
+template<typename T>
+void N::T1<T>::test_N_T1_blank()
+{
+}
+
+// ctag failed to capture class template
+template<typename T>
+template <typename U>
+void N::T1<T>::bug_N_T1_template()
 {
 }

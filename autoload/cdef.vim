@@ -283,7 +283,7 @@ function! cdef#selectCandidate(idx) abort
   let tag = s:candidates[a:idx]
   call s:open(tag.file) | call cursor(tag.line, 1) | normal! ^
   if len(s:candidates) > 1
-    echo printf('select (%d/%d)', s:candidates+1, len(s:candidates))
+    echo printf('select (%d/%d)', s:candidateIndex+1, len(s:candidates))
   endif
 endfunction
 
@@ -473,7 +473,8 @@ endfunction
 "   1 : remove
 " boundary : > for template, ) for function parameter
 function! cdef#handleDefaultValue(str, boundary, operation) abort
-  let pos = stridx(a:str, '(') " skip 1st ( of operator()()
+  " skip 1st ( of operator()()
+  let pos = a:boundary ==# ')' ? stridx(a:str, '(') : 0
   let dvs = []  " default values, [[startPos, endPos], ...]
   let [openPairs, closePairs, stack, target] = ['<([{"', '>)]}"',0 , ','.a:boundary]
 
@@ -486,7 +487,7 @@ function! cdef#handleDefaultValue(str, boundary, operation) abort
       " universal-ctags failed to parse template with default template value:
       " template<typename T = vector<int> > class ...
       " the last > will be ignored by ctags
-      let pos = len(a:str) - 1
+      "let pos = len(a:str) - 1
     endif
     let dvs += [ [frag[1], pos-1] ]
   endwhile
@@ -509,7 +510,7 @@ function! cdef#handleDefaultValue(str, boundary, operation) abort
   endif
 
   " handle > bug
-  if a:boundary ==# '>' && resStr[ len(resStr)-1 ] !=# '>' | let resStr .= '>' | endif
+  "if a:boundary ==# '>' && resStr[ len(resStr)-1 ] !=# '>' | let resStr .= '>' | endif
   return resStr
 endfunction
 
@@ -578,7 +579,10 @@ function! cdef#genFuncHead(proto, stripNamespace, ...) abort
   endif
 
   "comment default value, must be called before remove trailing
-  let funcHead = cdef#handleDefaultValue(funcHead, ')', 0)
+  let funcHead = cdef#handleDefaultValue(funcHead, ')', 1)
+  if cdef#hasTemplate(a:proto)
+    let funcHead = cdef#handleDefaultValue(funcHead, '>', 1)
+  endif
   "remove static or virtual
   let funcHead = substitute(funcHead, '\vstatic\s*|virtual\s*', '', '' )
   "remove trailing
