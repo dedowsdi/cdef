@@ -5,9 +5,15 @@ let s:cdefAutoload = s:scriptDir . '/../autoload/cdef.vim'
 let v:errors = []
 
 normal! mM
-echom "reload cdef.vim"
-exec 'edit ' s:cdefAutoload | VimlReloadScript
+echom 'reload cdef.vim'
+let t0 = reltime() | exec 'edit ' s:cdefAutoload | VimlReloadScript
+echom 'reload finished at' reltimestr(reltime(t0)) 'seconds'
 
+echom 'start test switch proto func'
+profile start /tmp/cdef_profile
+profile func cdef#*
+profile func *strToTag
+let t0 = reltime()
 try
   exec 'edit ' s:headFile | normal! gg
   while search('\v<test_\w+', 'W')
@@ -27,10 +33,11 @@ try
 finally
   normal! `M
 endtry
-
 echohl WarningMsg
 for err in v:errors
   echo err
 endfor
 echohl None
+echom 'test switch proto func finished in ' reltimestr(reltime(t0)) 'seconds'
+profile stop
 echo 'finished'
