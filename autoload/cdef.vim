@@ -705,25 +705,29 @@ function! cdef#switchFile(...) abort
   call s:notify("alternate file doesn't exist or can't be read")
 endfunction
 
-" [register [, stripNamespace]]
+" startLine, endLine, [register [, stripNamespace]]
 " create definition at register:
 "    whole namespace if current tag is namespace
 "    whole class if current tag is namespace
 "    single function if current tag is a prototype
-function! cdef#def(...) abort
+"
+" if startLine == endLine, define tag scope prototypes, otherwise defines
+" prototypes between startLine and endLine
+function! cdef#def(lnum0, lnum1, ...) abort
   let [register, stripNamespace] = [get(a:000, 0, '"'), get(a:000, 1, 1)]
   let tags = cdef#getTags()
-  let tag = cdef#findTag(tags, line('.'))
-  if tag == {} | echo 'no valid tag on current line' | return | endif
-  let range = []
-  if tag.kind ==# 'prototype'
-    let range = [tag.line, tag.line]
-  elseif tag.kind ==# 'namespace' || tag.kind ==# 'class'
-    let range = [tag.line, tag.end]
-  endif
+  let range = [a:lnum0, a:lnum1]
 
-  if empty(range)
-    echo 'no valid prototype, class, or namespace on current line' | return
+  if a:lnum0 == a:lnum1
+    let tag = cdef#findTag(tags, a:lnum0)
+    if tag == {} | echo 'no valid tag on current line' | return | endif
+    if tag.kind ==# 'prototype'
+      let range = [tag.line, tag.line]
+    elseif tag.kind ==# 'namespace' || tag.kind ==# 'class'
+      let range = [tag.line, tag.end]
+    else
+      echo 'no prototype, namespace or class on current line' | return
+    endif
   endif
 
   call filter(tags, 'v:val.kind ==# ''prototype'' && v:val.line >= range[0] && v:val.line <= range[1]')

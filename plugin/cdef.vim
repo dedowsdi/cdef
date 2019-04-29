@@ -7,7 +7,7 @@ if !executable('ctags')
   echohl WarningMsg | echom 'CDEF : missing ctags' | echohl None
 endif
 
-command! -nargs=* CdefDef              : call cdef#def(<f-args>)
+command! -nargs=* -range CdefDef       : call cdef#def(<line1>, <line2>, <f-args>)
 command! -nargs=0 CdefSwitch           : call cdef#switchProtoFunc()
 command! -nargs=0 CdefSwitchNext       : call cdef#selectNextCandidate()
 command! -nargs=0 CdefSwitchFile       : call cdef#switchFile()
