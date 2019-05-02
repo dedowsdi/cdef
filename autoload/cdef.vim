@@ -505,6 +505,38 @@ function! s:hookMethod(tags, name, refName) abort
   endfor
 endfunction
 
+" if you want to search > for < , make sure start is greater than pos of <
+function! s:searchStringOverPairs(str, start, target, openPairs, closePairs, direction) abort
+  if a:start >= len(a:str) | return -1 | endif
+
+  let step = a:direction ==# 'l' ? 1 : -1
+  let pairs0 = a:direction ==# 'l' ? a:openPairs : a:closePairs
+  let pairs1 = a:direction ==# 'l' ? a:closePairs : a:openPairs
+  let [stack, pos, size] = [[], a:start, len(a:str)]
+
+  while pos >= 0 && pos < size
+    let c = a:str[pos]
+    if len(stack) == 0 && stridx(a:target, c) != -1 | return pos | endif
+    let pos += step
+    " ignore everyting except open or close char of current pair
+    if len(stack) != 0
+      " search matching pair
+      if c ==# pairs1[ stack[-1] ]
+        call remove(stack, -1)
+      elseif c ==# pairs0[ stack[-1] ]
+        let stack += stack[-1]
+      endif
+      continue
+    endif
+    " check open pair
+    let idx = stridx(pairs0, c)
+    if idx != -1 | let stack += [ idx ] | continue | endif
+  endwhile
+
+  return -1
+endfunction
+
+
 " operation:
 "   0 : comment
 "   1 : remove
@@ -519,7 +551,7 @@ function! cdef#handleDefaultValue(str, boundary, operation) abort
   while 1
     let frag = matchstrpos(a:str, '\v\s*([!%^&|+\-*/<>])@<!\=', pos + 1)
     if frag[2] == -1 | break | endif
-    let pos = myvim#searchStringOverPairs(a:str, frag[2], target, openPairs, closePairs, 'l')
+    let pos = s:searchStringOverPairs(a:str, frag[2], target, openPairs, closePairs, 'l')
     if pos == -1  && a:boundary ==# '>'
       " universal-ctags failed to parse template with default template value:
       " template<typename T = vector<int> > class ...
