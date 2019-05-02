@@ -816,7 +816,7 @@ function! cdef#genGetSet(...) abort
   endif
 
   let str = getline('.')
-  let varType = cdef#trim(matchstr(str, '\v\s*\zs[^=/]+\ze<\h\w*>|\.\.\.'))
+  let varType = trim(matchstr(str, '\v\s*\zs[^=/]+\ze<\h\w*>'))
   let varName = matchstr(str,  '\v<\w+>\ze\s*[;\=,]')
 
   let argType = opts.const ? 'const '.varType.'&':varType
@@ -852,11 +852,4 @@ function! cdef#genGetSet(...) abort
   endif
 
   exec 'let @'.opts.register.' = res'
-endfunction
-
-function! cdef#trim(s, ...) abort
-  let [noLeft, noRight, res] = [get(a:000, 0, 0), get(a:000, 1, 0), a:s]
-  if !noLeft|let res = matchstr(res, '\v^\s*\zs.*')|endif
-  if !noRight|let res = matchstr(res, '\v.{-}\ze\s*$')|endif
-  return res
 endfunction
