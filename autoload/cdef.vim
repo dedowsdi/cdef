@@ -536,7 +536,6 @@ function! s:searchStringOverPairs(str, start, target, openPairs, closePairs, dir
   return -1
 endfunction
 
-
 " operation:
 "   0 : comment
 "   1 : remove
@@ -583,14 +582,29 @@ function! cdef#handleDefaultValue(str, boundary, operation) abort
   return resStr
 endfunction
 
+function! s:getTemplateStart(tag)
+  try
+    let oldpos = getpos('.') | call cursor(a:tag.line, 1)
+    if cdef#hasTemplate(a:tag)
+      if !search('\v^\s*<template>\_s*\<', 'bW', '')
+        throw 'faled to get template start '
+      endif
+    endif
+    let lnum = line('.')
+    return lnum
+  finally
+    call setpos('.', oldpos)
+  endtry
+endfunction
+
 " start = template line, end = ; line
-function! cdef#addStartEndToProto(proto) abort
+function! s:addStartAndToProto(proto) abort
   if a:proto.kind !=# 'prototype' | return | endif
   if has_key(a:proto, 'start') && has_key(a:proto, 'end') | return | endif
 
   try
     let oldpos = getpos('.')
-    call s:open(a:proto.file) | call cursor(a:proto.line, 1)
+    call cursor(a:proto.line, 1)
     if search('\v(operator\s*\(\s*\))?\zs\(')
       normal! %
       if search('\v\_s*;')  | let a:proto['end'] = line('.')
@@ -598,26 +612,48 @@ function! cdef#addStartEndToProto(proto) abort
         throw 'failed to add end to ' . cdef#pfToString(a:proto)
       endif
     endif
-
-    call cursor(a:proto.line, 1)
-    if cdef#hasTemplate(a:proto)
-      if search('\v^\s*<template>\_s*\<', 'bW', '')
-        let a:proto['start'] = line('.')
-      else
-        throw 'faled to add start to ' . cdef#getprotoString(a:proto)
-      endif
-    else
-      let a:proto['start'] = line('.')
-    endif
+    let a:proto.start = s:getTemplateStart(a:proto)
   finally
     call setpos('.', oldpos)
   endtry
 endfunction
 
+" select function or prototype
+function! cdef#selPf(ai)
+  let tags = filter(cdef#getTags(),
+        \ 'v:val.kind ==# ''prototype'' || v:val.kind ==# ''function''')
+  let [tag, pos] = [{}, getpos('.')]
+  for item in tags
+    if item.kind ==# 'prototype'
+      call s:addStartAndToProto(item)
+    else
+      let item.start = s:getTemplateStart(item)
+    endif
+    if pos[1] >= item.start && pos[1] <= item.end
+      let tag = item | break
+    endif
+  endfor
+
+  if tag == {} | return | endif
+  call cursor(tag.start, 0)
+  normal! V
+  call cursor(tag.end, 0)
+  " add trailing or preceding space for 'a'
+  if a:ai ==# 'a'
+    if search('\v^.*\S.*$', 'W') | :- | endif
+    if line('.') == tag.end
+      normal! o
+      " include preceding spaces if no following spaces exist
+      if search('\v^.*\S.*$', 'bW') | :+ | endif
+      normal! o
+    endif
+  endif
+endfunction
+
 " (proro, stripNamespace [, withHat])
 function! cdef#genFuncHead(proto, stripNamespace, ...) abort
   let withHat = get(a:000, 0, 1)
-  call cdef#addStartEndToProto(a:proto)
+  call s:addStartAndToProto(a:proto)
   let funcHeadList = getline(a:proto.start, a:proto.end)
 
   "trim left
