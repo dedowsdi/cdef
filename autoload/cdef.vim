@@ -60,11 +60,13 @@ function! s:trivial(msg) abort
 endfunction
 
 function! s:open(file) abort
-  let [f0, f1] = [expand('%:p'), fnamemodify(a:file, '%:p')]
-  if f0 ==# f1 | return | endif
-  let nr = bufnr(f1)
-  if nr != -1 | exec printf('buffer %d', nr) | return | endif
-  silent! exec 'edit ' . a:file
+  let nr = bufnr(a:file)
+  if nr == bufnr('') | return | endif
+  if nr != -1
+    exec printf('buffer %d', nr) 
+  else
+    silent! exec 'edit ' . a:file
+  endif
 endfunction
 
 function! s:strToTag(str) abort

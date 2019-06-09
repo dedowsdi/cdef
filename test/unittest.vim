@@ -39,5 +39,6 @@ for err in v:errors
 endfor
 echohl None
 echom 'test switch proto func finished in ' reltimestr(reltime(t0)) 'seconds'
-profile stop
 echo 'finished'
+" It's removed, you must exit vim to flush profile?
+" profile stop
