@@ -642,12 +642,12 @@ function! cdef#selPf(ai)
   call cursor(tag.end, 0)
   " add trailing or preceding space for 'a'
   if a:ai ==# 'a'
-    if search('\v^.*\S.*$', 'W') | :- | endif
+    if search('\v^.*\S.*$', 'W') | - | endif
     if line('.') == tag.end
-      normal! o
+      normal! o0
       " include preceding spaces if no following spaces exist
-      if search('\v^.*\S.*$', 'bW') | :+ | endif
-      normal! o
+      if search('\v^.*\S.*$', 'bW') | + | endif
+      normal! o^
     endif
   endif
 endfunction
