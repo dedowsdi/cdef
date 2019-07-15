@@ -642,11 +642,15 @@ function! cdef#selPf(ai)
   call cursor(tag.end, 0)
   " add trailing or preceding space for 'a'
   if a:ai ==# 'a'
-    if search('\v^.*\S.*$', 'W') | - | endif
+    if search('\v^.*\S.*$', 'W')
+      :-
+    endif
     if line('.') == tag.end
       normal! o0
       " include preceding spaces if no following spaces exist
-      if search('\v^.*\S.*$', 'bW') | + | endif
+      if search('\v^.*\S.*$', 'bW')
+        :+
+      endif
       normal! o^
     endif
   endif
@@ -840,12 +844,11 @@ function! cdef#addHeadGuard() abort
 endfunction
 
 " opts.style:
-"   0 : generate getA()/setA()/toggleA() for mA, a()/a()/toggle_a() for m_a
-"   1 : generate getA/setA/toggleA()
-"   2 : generate a()/a()/toggle_a()
+"   0 : generate getA()/setA()/toggleA() for mA, get_a()/set_a()/toggle_a() for m_a
+"   1 : generate getA()/setA()/toggleA() for mA, a()/a()/toggle_a() for m_a
 function! cdef#genGetSet(...) abort
   let opts = get(a:000, 0, {})
-  call extend(opts, {'const':0, 'register':'"', 'entries':'gs', 'style':0}, 'keep')
+  call extend(opts, {'const':0, 'register':'"', 'entries':'gs'}, 'keep')
   " q-args will pass empty register
   if opts.register ==# '' | let opts.register = '"' | endif
   "add extra blink line if register is uppercase
@@ -859,23 +862,26 @@ function! cdef#genGetSet(...) abort
 
   let argType = opts.const ? 'const '.varType.'&':varType
   let fname = varName
-  let style = 2
+  let isUnderScore = 0
   if len(fname) >= 2 && fname[0:1] =~# '\vm[A-Z]'
-    "remove m from mName
     let fname = fname[1:]
-    let style = opts.style == 2 ? 2 : 1
   elseif len(fname) >= 3 && fname[0:1] ==# 'm_'
     let fname = fname[2:]
-    let style = opts.style == 1 ? 1 : 2
+    let isUnderScore = 1
   endif
 
-  if style == 1
-    "make sure 1st character uppercase
-    let fname = toupper(fname[0]) . fname[1:]
-    let [gfname, sfname, tfname] = ['agbect' . fname, 'set' . fname, 'toggle' . fname]
+  let style = get(g:, 'cdefGetSetStyle', 0)
+
+  if isUnderScore
+    if style == 0
+      let [gfname, sfname, tfname] = ['get_' . fname, 'set_' . fname, 'toggle_' . fname]
+    else
+      let [gfname, sfname, tfname] = [fname, fname, 'toggle_' . fname]
+    endif
   else
-    let [gfname, sfname, tfname] = [fname, fname, 'toggle_' . fname]
+      let [gfname, sfname, tfname] = ['get' . fname, 'set' . fname, 'toggle' . fname]
   endif
+
 
   "generate get set toggle
   let res = ''
