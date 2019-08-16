@@ -849,8 +849,10 @@ endfunction
 function! cdef#genGetSet(...) abort
   let opts = get(a:000, 0, {})
   call extend(opts, {'const':0, 'register':'"', 'entries':'gs'}, 'keep')
+
   " q-args will pass empty register
   if opts.register ==# '' | let opts.register = '"' | endif
+
   "add extra blink line if register is uppercase
   if opts.register =~# '\v[A-Z]'
     exec 'let @'.opts.register.' = "\n"'
@@ -859,31 +861,32 @@ function! cdef#genGetSet(...) abort
   let str = getline('.')
   let varType = trim(matchstr(str, '\v\s*\zs[^=/]+\ze<\h\w*>'))
   let varName = matchstr(str,  '\v<\w+>\ze\s*[;\=,]')
-
+  let fname = substitute(varName, '\v^m?_', '', 'g')
   let argType = opts.const ? 'const '.varType.'&':varType
-  let fname = varName
-  let isUnderScore = 0
-  if len(fname) >= 2 && fname[0:1] =~# '\vm[A-Z]'
-    let fname = fname[1:]
-  elseif len(fname) >= 3 && fname[0:1] ==# 'm_'
-    let fname = fname[2:]
-    let isUnderScore = 1
-  endif
 
-  let style = get(g:, 'cdefGetSetStyle', 0)
-
-  if isUnderScore
-    if style == 0
-      let [gfname, sfname, tfname] = ['get_' . fname, 'set_' . fname, 'toggle_' . fname]
+  let style = get(g:, 'cdefGetSetStyle', '')
+  if style ==# ''
+    if fname =~# '\v^m[A-Z]'
+      let style = 'camel'
     else
-      let [gfname, sfname, tfname] = [fname, fname, 'toggle_' . fname]
+      let style = 'underscore'
     endif
-  else
-      let [gfname, sfname, tfname] = ['get' . fname, 'set' . fname, 'toggle' . fname]
   endif
 
+  if style ==# 'camel'
+    let fname = toupper(fname[0:0]) . fname[1:]
+  endif
 
-  "generate get set toggle
+  if style == 'underscore'
+    let [gfname, sfname, tfname] = ['get_' . fname, 'set_' . fname, 'toggle_' . fname]
+  elseif style == 'underscore_bare'
+    let [gfname, sfname, tfname] = [fname, fname, 'toggle_' . fname]
+  elseif style == 'camel'
+    let [gfname, sfname, tfname] = ['get' . fname, 'set' . fname, 'toggle' . fname]
+  else
+    throw 'unknow style ' . style
+  endif
+
   let res = ''
   if stridx(opts.entries, 'g') !=# -1
     let res .= printf("%s %s() const { return %s; }\n", argType, gfname, varName)
