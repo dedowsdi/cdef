@@ -873,7 +873,7 @@ function! cdef#genGetSet(...) abort
     if fname =~# '\v^m[A-Z]'
       let style = 'camel'
     else
-      let style = 'underscore'
+      let style = 'snake'
     endif
   endif
 
@@ -881,9 +881,9 @@ function! cdef#genGetSet(...) abort
     let fname = toupper(fname[0:0]) . fname[1:]
   endif
 
-  if style == 'underscore'
+  if style == 'snake'
     let [gfname, sfname, tfname] = ['get_' . fname, 'set_' . fname, 'toggle_' . fname]
-  elseif style == 'underscore_bare'
+  elseif style == 'snake_bare'
     let [gfname, sfname, tfname] = [fname, fname, 'toggle_' . fname]
   elseif style == 'camel'
     let [gfname, sfname, tfname] = ['get' . fname, 'set' . fname, 'toggle' . fname]
