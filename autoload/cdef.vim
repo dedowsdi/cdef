@@ -484,6 +484,10 @@ function! cdef#cmpProtoAndFunc(t0, t1) abort
   let sig0 = cdef#handleDefaultValue(a:t0.signature, ')', '1')
   let sig1 = cdef#handleDefaultValue(a:t1.signature, ')', '1')
 
+  " remove scope before compare signature
+  let sig0 = substitute(sig0, '\v<\w+\:\:', '', 'g')
+  let sig1 = substitute(sig1, '\v<\w+\:\:', '', 'g')
+
   if !cdef#cmpSig(sig0, sig1)
     call s:printCmpResult('compare signature failed', a:t0, a:t1) | return 0
   endif

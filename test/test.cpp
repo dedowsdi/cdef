@@ -40,6 +40,11 @@ void test_same_sig_different_scope(const std::string& s)
 {
 }
 
+using namespace std;
+void test_namespace_different(const string& s)
+{
+}
+
 namespace N
 {
   void test_N_blank()

@@ -22,6 +22,8 @@ void test_global_space_type_anomymous(signed long long int, int, unsigned int);
 
 void test_same_sig_different_scope(const std::string& s);
 
+void test_namespace_different(const std::string& s);
+
 template <typename T>
 void test_global_template_blank();
 
