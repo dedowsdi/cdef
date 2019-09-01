@@ -1,31 +1,31 @@
-let s:scriptDir = expand('<sfile>:p:h')
-let s:headFile = s:scriptDir . '/test.h'
-let s:sourceFile = s:scriptDir . '/test.cpp'
-let s:cdefAutoload = s:scriptDir . '/../autoload/cdef.vim'
+let s:script_dir = expand('<sfile>:p:h')
+let s:head_file = s:script_dir . '/test.h'
+let s:source_file = s:script_dir . '/test.cpp'
+let s:cdef_autoload = s:script_dir . '/../autoload/cdef.vim'
 let v:errors = []
 
 normal! mM
 echom 'reload cdef.vim'
-let t0 = reltime() | exec 'edit ' s:cdefAutoload | VimlReloadScript
+let t0 = reltime() | exec 'edit ' s:cdef_autoload | VimlReloadScript
 echom 'reload finished at' reltimestr(reltime(t0)) 'seconds'
 
 echom 'start test switch proto func'
 profile start /tmp/cdef_profile
 profile func cdef#*
-profile func *strToTag
+profile func *str_to_tag
 let t0 = reltime()
 try
-  exec 'edit ' s:headFile | normal! gg
+  exec 'edit ' s:head_file | normal! gg
   while search('\v<test_\w+', 'W')
     normal! mA
     try
       normal! yt(
-      let isTemplate = @" =~# 'template'
+      let is_template = @" =~# 'template'
       let lnum = line('.')
-      call assert_true(cdef#switchProtoFunc(), lnum .':'. @")
+      call assert_true(cdef#switch_proto_func(), lnum .':'. @")
       normal! yt(
       let lnum = line('.')
-      call assert_true(cdef#switchProtoFunc(), lnum .':'. @")
+      call assert_true(cdef#switch_proto_func(), lnum .':'. @")
     finally
       normal! `A
     endtry

@@ -3,22 +3,22 @@ if exists('g:loaded_cdef')
 endif
 let g:loaded_cdef = 1
 
-let g:cdefMacros = get(g:, 'cdefMacros', ' -D "META_Object(library,name)=" ')
-let g:cdefCtagCmdPre = 'ctags 2>/dev/null -f - --excmd=number --sort=no --fields=KsSe
-    \ --fields-c++=+{properties}{template} --kinds-c++=ncsfp --language-force=c++ ' . g:cdefMacros
-let g:cdefDefaultSourceExtension = get(g: , 'cdefDefaultSourceExtension', 'cpp')
-let g:cdefProjName = get(g:, 'cdefProjName', '')
-let s:srcExts = ['c', 'cpp', 'cxx', 'cc', 'inl']
-let s:headExts = ['h', 'hpp', '']
+let g:cdef_macros = get(g:, 'cdef_macros', ' -D "META_Object(library,name)=" ')
+let g:cdef_ctag_cmd_pre = 'ctags 2>/dev/null -f - --excmd=number --sort=no --fields=KsSe
+    \ --fields-c++=+{properties}{template} --kinds-c++=ncsfp --language-force=c++ ' . g:cdef_macros
+let g:cdef_default_source_extension = get(g: , 'cdef_default_source_extension', 'cpp')
+let g:cdef_proj_name = get(g:, 'cdef_proj_name', '')
+let s:src_exts = ['c', 'cpp', 'cxx', 'cc', 'inl']
+let s:head_exts = ['h', 'hpp', '']
 
-let s:templateSrc = expand('<sfile>:p:h:h').'/template/'
-let s:funcBody = readfile(glob(s:templateSrc) . 'funcbody')
-let s:funcHat = readfile(glob(s:templateSrc) . 'funchat')
-let s:optionStack = []
-let s:updatingFunction = {}
+let s:template_src = expand('<sfile>:p:h:h').'/template/'
+let s:func_body = readfile(glob(s:template_src) . 'funcbody')
+let s:func_hat = readfile(glob(s:template_src) . 'funchat')
+let s:option_stack = []
+let s:updating_function = {}
 let s:candidates = []
 
-let g:cdefNotifySeverity = get(g:, 'cdefNotifySeverity', 3)
+let g:cdef_notify_severity = get(g:, 'cdef_notify_severity', 3)
 let s:NOTIFY_ALWAYS = 0
 let s:NOTIFY_FATEL = 1
 let s:NOTIFY_WARN = 2
@@ -29,7 +29,7 @@ let s:NOTIFY_TRIVIAL = 6
 
 function! s:notify(msg, ...) abort
   let lvl = get(a:000, 0, s:NOTIFY_NOTICE)
-  if lvl > g:cdefNotifySeverity | return | endif
+  if lvl > g:cdef_notify_severity | return | endif
   if lvl == s:NOTIFY_FATEL
     echoe a:msg
   else
@@ -69,7 +69,7 @@ function! s:open(file) abort
   endif
 endfunction
 
-function! s:strToTag(str) abort
+function! s:str_to_tag(str) abort
   let l = split(a:str, "\t")
 
   if len(l) < 3 | echom 'failed to parse "' . a:str . "'" | return {} | endif
@@ -93,7 +93,7 @@ function! s:strToTag(str) abort
   if has_key(d, 'struct') | let d['class'] = d.struct | endif
 
   if d.kind ==# 'prototype' || d.kind ==# 'function'
-    call extend(d, {'class':'', 'namespace':'', 'classTag':{}, 'namespaceTag':{}}, 'keep')
+    call extend(d, {'class':'', 'namespace':'', 'class_tag':{}, 'namespace_tag':{}}, 'keep')
     if !empty(d.class)
       let d.scope = d.class
     elseif !empty(!d.namespace)
@@ -101,70 +101,70 @@ function! s:strToTag(str) abort
     else
       let d.scope = ''
     endif
-    let d.fullName = has_key(d, 'scope') ? d.scope.'::'.d.name : d.name
+    let d.fullname = has_key(d, 'scope') ? d.scope.'::'.d.name : d.name
   endif
 
   return d
 endfunction
 
-function! cdef#hasProperty(tag, property) abort
+function! cdef#has_property(tag, property) abort
   return has_key(a:tag, 'properties') &&  stridx(a:tag.properties, a:property) != -1
 endfunction
 
-function! cdef#isPure(tag) abort
-  return cdef#hasProperty(a:tag, 'pure')
+function! cdef#is_pure(tag) abort
+  return cdef#has_property(a:tag, 'pure')
 endfunction
 
-function! cdef#isDeleted(tag) abort
-  return cdef#hasProperty(a:tag, 'delete')
+function! cdef#is_deleted(tag) abort
+  return cdef#has_property(a:tag, 'delete')
 endfunction
 
-function! cdef#isInline(tag) abort
-  return cdef#hasProperty(a:tag, 'inline')
+function! cdef#is_inline(tag) abort
+  return cdef#has_property(a:tag, 'inline')
 endfunction
 
-function! cdef#isVirtual(tag) abort
-  return cdef#hasProperty(a:tag, 'virtual')
+function! cdef#is_virtual(tag) abort
+  return cdef#has_property(a:tag, 'virtual')
 endfunction
 
-function! cdef#isStatic(tag) abort
-  return cdef#hasProperty(a:tag, 'static')
+function! cdef#is_static(tag) abort
+  return cdef#has_property(a:tag, 'static')
 endfunction
 
-function! cdef#isConst(tag) abort
-  return cdef#hasProperty(a:tag, 'const')
+function! cdef#is_const(tag) abort
+  return cdef#has_property(a:tag, 'const')
 endfunction
 
-function! cdef#hasTemplate(tag) abort
+function! cdef#has_template(tag) abort
   return has_key(a:tag, 'template')
 endfunction
 
-function! cdef#getTags(...) abort
-  let ctagCmd = get(a:000, 0, g:cdefCtagCmdPre . expand('%:p')  )
-  let l = systemlist(ctagCmd)
+function! cdef#get_tags(...) abort
+  let ctag_cmd = get(a:000, 0, g:cdef_ctag_cmd_pre . expand('%:p')  )
+  let l = systemlist(ctag_cmd)
   if !empty(l) && l[0][0:4] ==# 'ctags:'
-    throw printf('ctag cmd failed : %s\n. Error message:%s', ctagCmd, string(l))
+    throw printf('ctag cmd failed : %s\n. Error message:%s', ctag_cmd, string(l))
   endif
-  "let tags = [cdef#createTag('##global##', '', 0, 'namespace', {'end': 1000000, 'fullName': '##global##'})]
-  "let namespaceStack = [tags[0]]
-  let [tags, namespaceStack, classStack] = [[], [], []]
+  "let tags = [cdef#create_tag('##global##', '', 0, 'namespace', {'end': 1000000, 'fullname': '##global##'})]
+  "let namespace_stack = [tags[0]]
+  let [tags, namespace_stack, class_stack] = [[], [], []]
 
   for item in l
-    let tag = s:strToTag(item)
+    let tag = s:str_to_tag(item)
     if tag.kind ==# 'slot' | continue | endif
     " ignore signal prototype, which always fallowed by a signal kind tag
     if tag.kind ==# 'signal' | call remove(tags, -1) | continue | endif
 
     let tags += [tag]
     " setup class name namespace for prototype and function
-    while !empty(namespaceStack) && namespaceStack[-1].end < tag.line
-      call s:trivial(printf('tag : pop namespace %s', namespaceStack[-1].name))
-      call remove(namespaceStack, -1)
+    while !empty(namespace_stack) && namespace_stack[-1].end < tag.line
+      call s:trivial(printf('tag : pop namespace %s', namespace_stack[-1].name))
+      call remove(namespace_stack, -1)
     endwhile
 
-    while !empty(classStack) && classStack[-1].end < tag.line
-      call s:trivial(printf('tag : pop class %s', classStack[-1].name))
-      call remove(classStack, -1)
+    while !empty(class_stack) && class_stack[-1].end < tag.line
+      call s:trivial(printf('tag : pop class %s', class_stack[-1].name))
+      call remove(class_stack, -1)
     endwhile
 
     if tag.kind ==# 'namespace'
@@ -174,7 +174,7 @@ function! cdef#getTags(...) abort
         return
       endif
       call s:trivial(printf('tag : push namespace %s', tag.name))
-      let namespaceStack += [tag]
+      let namespace_stack += [tag]
     elseif tag.kind ==# 'class'
       if !has_key(tag, 'end')
         call s:fatel(printf('class %s at line %d has no end, something must be seriously wrong', 
@@ -182,55 +182,55 @@ function! cdef#getTags(...) abort
         return
       endif
       call s:trivial(printf('tag : push class %s', tag.name))
-      let classStack += [tag]
+      let class_stack += [tag]
     elseif tag.kind ==# 'prototype' || tag.kind ==# 'function'
-      let tag['classTag'] = get(classStack, -1, {})
-      let tag['namespaceTag'] = get(namespaceStack, -1, {})
-      if tag.namespaceTag != {} | let tag.namespace = tag.namespaceTag.name | endif
+      let tag['class_tag'] = get(class_stack, -1, {})
+      let tag['namespace_tag'] = get(namespace_stack, -1, {})
+      if tag.namespace_tag != {} | let tag.namespace = tag.namespace_tag.name | endif
     endif
   endfor
   return tags
 endfunction
 
-function! cdef#createTag(name, file, line, kind, ...) abort
+function! cdef#create_tag(name, file, line, kind, ...) abort
   let tag = {'name':a:name, 'file':a:file, 'line':a:line, 'kind':a:kind}
   call extend(tag, get(a:000, 0, {}), 'keep') | return tag
 endfunction
 
-function! cdef#findTag(tags, lnum) abort
+function! cdef#find_tag(tags, lnum) abort
   let l = filter(copy(a:tags), 'v:val.line == a:lnum')
   return empty(l) ? {} : l[0]
 endfunction
 
 "([line])
-function! cdef#getTagAtLine(...) abort
+function! cdef#get_tag_at_line(...) abort
   let lnum = get(a:000, 0, line('.'))
-  let ctagCmd = g:cdefCtagCmdPre . expand('%:p') . ' | grep -P ''\t'.lnum.';"'''
-  let tags = cdef#getTags(ctagCmd)
-  return cdef#findTag(tags, lnum)
+  let ctag_cmd = g:cdef_ctag_cmd_pre . expand('%:p') . ' | grep -P ''\t'.lnum.';"'''
+  let tags = cdef#get_tags(ctag_cmd)
+  return cdef#find_tag(tags, lnum)
 endfunction
 
-function! cdef#pfToString(tag) abort
-  let str = a:tag.name . cdef#handleDefaultValue(a:tag.signature, ')', 1)
+function! cdef#pf_to_string(tag) abort
+  let str = a:tag.name . cdef#handle_default_value(a:tag.signature, ')', 1)
   if has_key(a:tag, 'scope')
     let str = a:tag.scope . '::' . str
   endif
   if has_key(a:tag, 'properties')
     let str = str . ':' . a:tag.properties
   endif
-  let str = cdef#getTemplate(a:tag) . str
+  let str = cdef#get_template(a:tag) . str
   return str
 endfunction
 
-function! cdef#getPrototypeString(prototype) abort
-  let str = a:prototype.name . cdef#handleDefaultValue(a:prototype.signature, ')', 1)
+function! cdef#get_prototype_string(prototype) abort
+  let str = a:prototype.name . cdef#handle_default_value(a:prototype.signature, ')', 1)
   if has_key(a:prototype, 'scope')
     let str = a:prototype.scope . '::' . str
   endif
   if has_key(a:prototype, 'properties')
     let str = str . ':' . a:prototype.properties
   endif
-  let str = cdef#getTemplate(a:prototype) . str
+  let str = cdef#get_template(a:prototype) . str
   return str
 endfunction
 
@@ -249,7 +249,7 @@ endfunction
 " scopes will be splited by :: and compared from right to left, the one with the
 " more matched scope win(return -1), if they have the same matches, the one with
 " less scopes win
-function! s:compareCandidate(t0, t1, t2)
+function! s:compare_candidate(t0, t1, t2)
   if empty(a:t0.scope) | throw 'empty original scope during candidate comparing' | endif
   let s0 = reverse(split(a:t0.scope, '::'))
   let s1 = reverse(split(a:t1.scope, '::'))
@@ -266,114 +266,114 @@ function! s:compareCandidate(t0, t1, t2)
   return m1 > m2 ? -1 : 1
 endfunction
 
-function! cdef#resetCandidates(tag, candidates)
-  let [s:candidates, s:candidateIndex] = [a:candidates, 0]
+function! cdef#reset_candidates(tag, candidates)
+  let [s:candidates, s:candidate_index] = [a:candidates, 0]
   " if current tag has no scope, remove all class or namespace items
   if empty(a:tag.scope) | call filter(s:candidates, 'empty(v:val.scope)') | endif
 
-  call sort(s:candidates, function('s:compareCandidate', [a:tag]))
+  call sort(s:candidates, function('s:compare_candidate', [a:tag]))
   for cand in s:candidates
-    call s:debug('add candidates : ' . cdef#pfToString(cand))
+    call s:debug('add candidates : ' . cdef#pf_to_string(cand))
   endfor
 endfunction
 
-function! cdef#selectCandidate(idx) abort
+function! cdef#select_candidate(idx) abort
   if empty(s:candidates) || a:idx >= len(s:candidates)
     echohl WarningMsg | echo a:idx 'overflow' | echohl None | return
   endif
-  let s:candidateIndex = a:idx
+  let s:candidate_index = a:idx
   let tag = s:candidates[a:idx]
   call s:open(tag.file) | call cursor(tag.line, 1) | normal! ^
   if len(s:candidates) > 1
-    echo printf('select (%d/%d)', s:candidateIndex+1, len(s:candidates))
+    echo printf('select (%d/%d)', s:candidate_index+1, len(s:candidates))
   endif
 endfunction
 
-function! cdef#selectNextCandidate() abort
+function! cdef#select_next_candidate() abort
   if empty(s:candidates) | return | endif
-  let nextIndex = s:candidateIndex + 1
-  if nextIndex == len(s:candidates)
-    let nextIndex = 0
+  let next_index = s:candidate_index + 1
+  if next_index == len(s:candidates)
+    let next_index = 0
     if len(s:candidates) != 1
       echohl WarningMsg | echo 'hit last, continue at first' | echohl None
     endif
   endif
-  call cdef#selectCandidate(nextIndex)
+  call cdef#select_candidate(next_index)
 endfunction
 
-function! s:searchFunctions(protoTag, tags) abort
+function! s:search_functions(proto_tag, tags) abort
   let res = []
-  for funcTag in a:tags
-    if funcTag.kind !=# 'function' | continue | endif
-    if cdef#cmpProtoAndFunc(a:protoTag, funcTag) | call add(res, funcTag) | endif
+  for func_tag in a:tags
+    if func_tag.kind !=# 'function' | continue | endif
+    if cdef#cmp_proto_and_func(a:proto_tag, func_tag) | call add(res, func_tag) | endif
   endfor
   return res
 endfunction
 
-function! cdef#searchFunctions(protoTag, tags, altFile) abort
-  call s:debug('search functions for : ' . cdef#pfToString(a:protoTag))
-  let l = s:searchFunctions(a:protoTag, a:tags)
+function! cdef#search_functions(proto_tag, tags, alt_file) abort
+  call s:debug('search functions for : ' . cdef#pf_to_string(a:proto_tag))
+  let l = s:search_functions(a:proto_tag, a:tags)
   " search in alternate file
-  if !empty(a:altFile)
-    let ctagCmd = printf('%s %s | grep -P ''namespace|class|struct|^%s.*\bfunction\b''', g:cdefCtagCmdPre,
-          \ a:altFile, substitute(a:protoTag.name, '\v[^0-9a-zA-Z \t]', '\\\0', 'g'))
-    let l += s:searchFunctions(a:protoTag, cdef#getTags(ctagCmd))
+  if !empty(a:alt_file)
+    let ctag_cmd = printf('%s %s | grep -P ''namespace|class|struct|^%s.*\bfunction\b''', g:cdef_ctag_cmd_pre,
+          \ a:alt_file, substitute(a:proto_tag.name, '\v[^0-9a-zA-Z \t]', '\\\0', 'g'))
+    let l += s:search_functions(a:proto_tag, cdef#get_tags(ctag_cmd))
   endif
-  call cdef#resetCandidates(a:protoTag, l)
+  call cdef#reset_candidates(a:proto_tag, l)
 endfunction
 
-function! s:searchPrototypes(protoTag, tags) abort
+function! s:search_prototypes(proto_tag, tags) abort
   let res = []
-  for funcTag in a:tags
-    if funcTag.kind !=# 'prototype' | continue | endif
-    if cdef#cmpProtoAndFunc(funcTag, a:protoTag) | call add(res, funcTag) | endif
+  for func_tag in a:tags
+    if func_tag.kind !=# 'prototype' | continue | endif
+    if cdef#cmp_proto_and_func(func_tag, a:proto_tag) | call add(res, func_tag) | endif
   endfor
   return res
 endfunction
 
-function! cdef#searchPrototypes(funcTag, tags0, altFile) abort
-  call s:debug('search prototypes for : ' . cdef#pfToString(a:funcTag))
-  let l = s:searchPrototypes(a:funcTag, a:tags0)
+function! cdef#search_prototypes(func_tag, tags0, alt_file) abort
+  call s:debug('search prototypes for : ' . cdef#pf_to_string(a:func_tag))
+  let l = s:search_prototypes(a:func_tag, a:tags0)
   " search in alternate file
-  if !empty(a:altFile)
-    let ctagCmd = printf('%s %s | grep -P ''namespace|class|struct|^%s.*\bprototype\b''', g:cdefCtagCmdPre,
-          \ a:altFile, substitute(a:funcTag.name, '\v[^0-9a-zA-Z \t]', '\\\0', 'g'))
-    let l += s:searchPrototypes(a:funcTag, cdef#getTags(ctagCmd))
+  if !empty(a:alt_file)
+    let ctag_cmd = printf('%s %s | grep -P ''namespace|class|struct|^%s.*\bprototype\b''', g:cdef_ctag_cmd_pre,
+          \ a:alt_file, substitute(a:func_tag.name, '\v[^0-9a-zA-Z \t]', '\\\0', 'g'))
+    let l += s:search_prototypes(a:func_tag, cdef#get_tags(ctag_cmd))
   endif
-  call cdef#resetCandidates(a:funcTag, l)
+  call cdef#reset_candidates(a:func_tag, l)
 endfunction
 
-function! cdef#switchProtoFunc() abort
-  let tags = cdef#getTags()
-  let t0 = cdef#findTag(tags, line('.'))
+function! cdef#switch_proto_func() abort
+  let tags = cdef#get_tags()
+  let t0 = cdef#find_tag(tags, line('.'))
   if t0 == {} || (t0.kind !=# 'prototype' && t0.kind !=# 'function') | return 0 | endif
 
   let wlnum0 = winline()
-  let altFile = cdef#getSwitchFile()
+  let alt_file = cdef#get_switch_file()
   let t1 = t0.kind ==# 'prototype' ?
-        \ cdef#searchFunctions(t0, tags, altFile) : cdef#searchPrototypes(t0, tags, altFile)
+        \ cdef#search_functions(t0, tags, alt_file) : cdef#search_prototypes(t0, tags, alt_file)
   if empty(s:candidates) | return 0 | endif
-  call cdef#selectCandidate(0) | call s:scroll(wlnum0) | return 1
+  call cdef#select_candidate(0) | call s:scroll(wlnum0) | return 1
 endfunction
 
-function! s:genFunc(prototype, nsFullName) abort
-  let head = cdef#genFuncHead(a:prototype, a:nsFullName)
-  let body = deepcopy(s:funcBody, a:nsFullName)
-  return head + s:funcBody
+function! s:gen_func(prototype, ns_full_name) abort
+  let head = cdef#gen_func_head(a:prototype, a:ns_full_name)
+  let body = deepcopy(s:func_body, a:ns_full_name)
+  return head + s:func_body
 endfunction
 
-function! cdef#getTemplate(tag) abort
+function! cdef#get_template(tag) abort
   let template = ''
 
-  if has_key(a:tag.classTag, 'template')
-    let template = printf('template%s', a:tag.classTag.template)
+  if has_key(a:tag.class_tag, 'template')
+    let template = printf('template%s', a:tag.class_tag.template)
   endif
 
   if has_key(a:tag, 'template')
     let template = printf('%stemplate%s', template, a:tag.template)
   endif
 
-  let template = cdef#handleDefaultValue(template , '>', 1)
+  let template = cdef#handle_default_value(template , '>', 1)
 
   return template
 endfunction
@@ -409,7 +409,7 @@ let s:space_types = [
       \ ['\v<signed>'                        , 'int'],
       \ ]
 
-function! cdef#cmpSig(s0, s1) abort
+function! cdef#cmp_sig(s0, s1) abort
   if a:s0 == a:s1 | return 1 | endif
 
   if xor(a:s0[-5:-1] ==# 'const', a:s1[-5:-1] ==# 'const') | return 0 | endif
@@ -469,55 +469,55 @@ function! cdef#cmpSig(s0, s1) abort
   return 1
 endfunction
 
-function! s:printCmpResult(desc, t0, t1) abort
-  if g:cdefNotifySeverity >= s:NOTIFY_TRIVIAL
+function! s:print_cmp_result(desc, t0, t1) abort
+  if g:cdef_notify_severity >= s:NOTIFY_TRIVIAL
     call s:trivial(a:desc)
-    call s:trivial(printf('    %s', cdef#getPrototypeString(a:t0)))
-    call s:trivial(printf('    %s', cdef#getPrototypeString(a:t1)))
+    call s:trivial(printf('    %s', cdef#get_prototype_string(a:t0)))
+    call s:trivial(printf('    %s', cdef#get_prototype_string(a:t1)))
   endif
 endfunction
 
 " namespaces and classes are ignored
-function! cdef#cmpProtoAndFunc(t0, t1) abort
+function! cdef#cmp_proto_and_func(t0, t1) abort
   if a:t0.name !=# a:t1.name | return 0 | endif
 
-  let sig0 = cdef#handleDefaultValue(a:t0.signature, ')', '1')
-  let sig1 = cdef#handleDefaultValue(a:t1.signature, ')', '1')
+  let sig0 = cdef#handle_default_value(a:t0.signature, ')', '1')
+  let sig1 = cdef#handle_default_value(a:t1.signature, ')', '1')
 
   " remove scope before compare signature
   let sig0 = substitute(sig0, '\v<\w+\:\:', '', 'g')
   let sig1 = substitute(sig1, '\v<\w+\:\:', '', 'g')
 
-  if !cdef#cmpSig(sig0, sig1)
-    call s:printCmpResult('compare signature failed', a:t0, a:t1) | return 0
+  if !cdef#cmp_sig(sig0, sig1)
+    call s:print_cmp_result('compare signature failed', a:t0, a:t1) | return 0
   endif
 
-  if substitute(cdef#getTemplate(a:t0), '\v<class>', 'typename', 'g') !=#
-        \ substitute(cdef#getTemplate(a:t1), '\v<class>', 'typename', 'g')
-    call s:printCmpResult('compare template failed', a:t0, a:t1)
+  if substitute(cdef#get_template(a:t0), '\v<class>', 'typename', 'g') !=#
+        \ substitute(cdef#get_template(a:t1), '\v<class>', 'typename', 'g')
+    call s:print_cmp_result('compare template failed', a:t0, a:t1)
     return 0
   endif
 
   return 1
 endfunction
 
-function! s:getPrototypeNamespaceFullName() dict abort
-  return self.namespace.fullName
+function! s:get_prototype_namespace_full_name() dict abort
+  return self.namespace.fullname
 endfunction
 
-function! s:hookMethod(tags, name, refName) abort
+function! s:hook_method(tags, name, ref_name) abort
   for tag in a:tags
-    let tag[a:name] = function(a:refName)
+    let tag[a:name] = function(a:ref_name)
   endfor
 endfunction
 
 " if you want to search > for < , make sure start is greater than pos of <
-function! s:searchStringOverPairs(str, start, target, openPairs, closePairs, direction) abort
+function! s:search_string_over_pairs(str, start, target, open_pairs, close_pairs, direction) abort
   if a:start >= len(a:str) | return -1 | endif
 
   let step = a:direction ==# 'l' ? 1 : -1
-  let pairs0 = a:direction ==# 'l' ? a:openPairs : a:closePairs
-  let pairs1 = a:direction ==# 'l' ? a:closePairs : a:openPairs
+  let pairs0 = a:direction ==# 'l' ? a:open_pairs : a:close_pairs
+  let pairs1 = a:direction ==# 'l' ? a:close_pairs : a:open_pairs
   let [stack, pos, size] = [[], a:start, len(a:str)]
 
   while pos >= 0 && pos < size
@@ -546,17 +546,17 @@ endfunction
 "   0 : comment
 "   1 : remove
 " boundary : > for template, ) for function parameter
-function! cdef#handleDefaultValue(str, boundary, operation) abort
+function! cdef#handle_default_value(str, boundary, operation) abort
   " skip 1st ( of operator()()
   let pos = a:boundary ==# ')' ? stridx(a:str, '(') : 0
   let dvs = []  " default values, [[startPos, endPos], ...]
-  let [openPairs, closePairs, stack, target] = ['<([{"', '>)]}"',0 , ','.a:boundary]
+  let [open_pairs, close_pairs, stack, target] = ['<([{"', '>)]}"',0 , ','.a:boundary]
 
   " get =, ignore !=, +=,etc
   while 1
     let frag = matchstrpos(a:str, '\v\s*([!%^&|+\-*/<>])@<!\=', pos + 1)
     if frag[2] == -1 | break | endif
-    let pos = s:searchStringOverPairs(a:str, frag[2], target, openPairs, closePairs, 'l')
+    let pos = s:search_string_over_pairs(a:str, frag[2], target, open_pairs, close_pairs, 'l')
     if pos == -1  && a:boundary ==# '>'
       " universal-ctags failed to parse template with default template value:
       " template<typename T = vector<int> > class ...
@@ -568,30 +568,30 @@ function! cdef#handleDefaultValue(str, boundary, operation) abort
 
   if empty(dvs) | return a:str | endif
 
-  let [resStr, pos] = ['', 0]
+  let [res_str, pos] = ['', 0]
   if a:operation == 1
     for pair in dvs
-      let resStr .= a:str[pos : pair[0] - 1]
+      let res_str .= a:str[pos : pair[0] - 1]
       let pos = pair[1] + 1
     endfor
-    let resStr .= a:str[pos : ]
+    let res_str .= a:str[pos : ]
   else
     for pair in dvs
-      let resStr .= a:str[pos : pair[0] - 1] . '/*' . a:str[pair[0] : pair[1]] . '*/'
+      let res_str .= a:str[pos : pair[0] - 1] . '/*' . a:str[pair[0] : pair[1]] . '*/'
       let pos = pair[1] + 1
     endfor
-    let resStr .= a:str[pos : ]
+    let res_str .= a:str[pos : ]
   endif
 
   " handle > bug
-  "if a:boundary ==# '>' && resStr[ len(resStr)-1 ] !=# '>' | let resStr .= '>' | endif
-  return resStr
+  "if a:boundary ==# '>' && res_str[ len(res_str)-1 ] !=# '>' | let res_str .= '>' | endif
+  return res_str
 endfunction
 
-function! s:getTemplateStart(tag)
+function! s:get_template_start(tag)
   try
     let oldpos = getpos('.') | call cursor(a:tag.line, 1)
-    if cdef#hasTemplate(a:tag)
+    if cdef#has_template(a:tag)
       if !search('\v^\s*<template>\_s*\<', 'bW', '')
         throw 'faled to get template start '
       endif
@@ -604,7 +604,7 @@ function! s:getTemplateStart(tag)
 endfunction
 
 " start = template line, end = ; line
-function! s:addStartAndToProto(proto) abort
+function! s:add_start_and_to_proto(proto) abort
   if a:proto.kind !=# 'prototype' | return | endif
   if has_key(a:proto, 'start') && has_key(a:proto, 'end') | return | endif
 
@@ -615,25 +615,25 @@ function! s:addStartAndToProto(proto) abort
       normal! %
       if search('\v\_s*;')  | let a:proto['end'] = line('.')
       else
-        throw 'failed to add end to ' . cdef#pfToString(a:proto)
+        throw 'failed to add end to ' . cdef#pf_to_string(a:proto)
       endif
     endif
-    let a:proto.start = s:getTemplateStart(a:proto)
+    let a:proto.start = s:get_template_start(a:proto)
   finally
     call setpos('.', oldpos)
   endtry
 endfunction
 
 " select function or prototype
-function! cdef#selPf(ai)
-  let tags = filter(cdef#getTags(),
+function! cdef#sel_pf(ai)
+  let tags = filter(cdef#get_tags(),
         \ 'v:val.kind ==# ''prototype'' || v:val.kind ==# ''function''')
   let [tag, pos] = [{}, getpos('.')]
   for item in tags
     if item.kind ==# 'prototype'
-      call s:addStartAndToProto(item)
+      call s:add_start_and_to_proto(item)
     else
-      let item.start = s:getTemplateStart(item)
+      let item.start = s:get_template_start(item)
     endif
     if pos[1] >= item.start && pos[1] <= item.end
       let tag = item | break
@@ -660,144 +660,144 @@ function! cdef#selPf(ai)
   endif
 endfunction
 
-" (proro, stripNamespace [, withHat])
-function! cdef#genFuncHead(proto, stripNamespace, ...) abort
-  let withHat = get(a:000, 0, 1)
-  call s:addStartAndToProto(a:proto)
-  let funcHeadList = getline(a:proto.start, a:proto.end)
+" (proro, strip_namespace [, with_hat])
+function! cdef#gen_func_head(proto, strip_namespace, ...) abort
+  let with_hat = get(a:000, 0, 1)
+  call s:add_start_and_to_proto(a:proto)
+  let func_head_list = getline(a:proto.start, a:proto.end)
 
   "trim left
-  let numSpaces = 10
-  for i in range(len(funcHeadList))
-    let numSpaces = min([numSpaces, len(matchstr(funcHeadList[i], '\v^\s*'))])
+  let num_spaces = 10
+  for i in range(len(func_head_list))
+    let num_spaces = min([num_spaces, len(matchstr(func_head_list[i], '\v^\s*'))])
   endfor
-  for i in range(len(funcHeadList))
-    let funcHeadList[i] = funcHeadList[i][numSpaces :]
+  for i in range(len(func_head_list))
+    let func_head_list[i] = func_head_list[i][num_spaces :]
   endfor
 
-  let funcHead = join(funcHeadList, "\n")
-  if cdef#hasProperty(a:proto, 'static')
-    let funcHead = substitute(funcHead, '\v\s*\zs<static>\s*', '', '')
+  let func_head = join(func_head_list, "\n")
+  if cdef#has_property(a:proto, 'static')
+    let func_head = substitute(func_head, '\v\s*\zs<static>\s*', '', '')
   endif
 
   let scope = ''
   if empty(a:proto.class)
-    if !a:stripNamespace | let scope = a:proto.namespace | endif
+    if !a:strip_namespace | let scope = a:proto.namespace | endif
   else
     let scope = a:proto.class
-    if a:stripNamespace && !empty(a:proto.namespace)
+    if a:strip_namespace && !empty(a:proto.namespace)
       if stridx(scope, a:proto.namespace) != 0
-        throw 'unknown state, tag class does''t start with namespace : '.cdef#pfToString(a:proto)
+        throw 'unknown state, tag class does''t start with namespace : '.cdef#pf_to_string(a:proto)
       endif
       let scope = scope[len(a:proto.namespace)+2:]
     endif
   endif
 
   "comment default value, must be called before remove trailing
-  let funcHead = cdef#handleDefaultValue(funcHead, ')', 1)
-  if cdef#hasTemplate(a:proto)
-    let funcHead = cdef#handleDefaultValue(funcHead, '>', 1)
+  let func_head = cdef#handle_default_value(func_head, ')', 1)
+  if cdef#has_template(a:proto)
+    let func_head = cdef#handle_default_value(func_head, '>', 1)
   endif
   "remove static or virtual
-  let funcHead = substitute(funcHead, '\vstatic\s*|virtual\s*', '', '' )
+  let func_head = substitute(func_head, '\vstatic\s*|virtual\s*', '', '' )
   "remove trailing
-  let funcHead = substitute(funcHead, '\v(override)?\s*\;\s*$', '', '')
+  let func_head = substitute(func_head, '\v(override)?\s*\;\s*$', '', '')
 
   " add class template
-  if has_key(a:proto.classTag, 'template')
-    let template = cdef#handleDefaultValue(a:proto.classTag.template, '>', 1)
+  if has_key(a:proto.class_tag, 'template')
+    let template = cdef#handle_default_value(a:proto.class_tag.template, '>', 1)
     let scope .= substitute(template, '\v<typename>\s*|<class>\s*', '', '')
-    let funcHead = printf("template%s\n%s", template, funcHead)
+    let func_head = printf("template%s\n%s", template, func_head)
   endif
 
   " add scope
   if !empty(scope)
     " ctag always add extra blank after operator, it 'changed' function name
     if stridx(a:proto.name, 'operator') == 0
-      let funcHead = substitute(funcHead, '\V\<operator', scope.'::\0', '')
+      let func_head = substitute(func_head, '\V\<operator', scope.'::\0', '')
     else
       " should i use ~ instead of of \W?
-      let funcHead = substitute(funcHead, '\V\(\W\|\^\)\zs'.a:proto.name.'\>', scope.'::\0', '')
+      let func_head = substitute(func_head, '\V\(\W\|\^\)\zs'.a:proto.name.'\>', scope.'::\0', '')
     endif
   endif
 
-  let arr = split(funcHead, "\n")
-  if withHat | let arr = s:funcHat + arr | endif
+  let arr = split(func_head, "\n")
+  if with_hat | let arr = s:func_hat + arr | endif
   return arr
 endfunction
 
-function! cdef#isHeadFile() abort
-  return index(s:headExts, expand('%:e') ) >= 0
+function! cdef#is_head_file() abort
+  return index(s:head_exts, expand('%:e') ) >= 0
 endfunction
 
-function! cdef#isSourceFile() abort
-  return index(s:srcExts, expand('%:e') ) >= 0
+function! cdef#is_source_file() abort
+  return index(s:src_exts, expand('%:e') ) >= 0
 endfunction
 
-function! cdef#getSwitchDirs() abort
+function! cdef#get_switch_dirs() abort
   "take care of file path like include/subdir/file.h
-  let dirPath = expand('%:p:h')
-  let l = matchlist(dirPath, '\v(.*)(<include>|<src>)(.*)')
+  let dir_path = expand('%:p:h')
+  let l = matchlist(dir_path, '\v(.*)(<include>|<src>)(.*)')
   if l == []
-    let altDir = dirPath
+    let alt_dir = dir_path
   elseif l[2] ==# 'include'
-    let altDir = l[1] . 'src' . l[3]
+    let alt_dir = l[1] . 'src' . l[3]
   elseif l[2] ==# 'src'
-    let altDir = l[1] . 'include' . l[3]
+    let alt_dir = l[1] . 'include' . l[3]
   endif
-  let altDir .= '/'
+  let alt_dir .= '/'
 
   " add current dir, in case .h and .cpp resides in the same src or include
-  return [altDir, dirPath.'/']
+  return [alt_dir, dir_path.'/']
 endfunction
 
-function! cdef#getSwitchFile() abort
-  let altDirs = cdef#getSwitchDirs()
-  let altExts = cdef#isHeadFile() ? s:srcExts : s:headExts
-  let baseName = expand('%:t:r')
+function! cdef#get_switch_file() abort
+  let alt_dirs = cdef#get_switch_dirs()
+  let alt_exts = cdef#is_head_file() ? s:src_exts : s:head_exts
+  let base_name = expand('%:t:r')
 
-  for altDir in altDirs
-    for ext in altExts
-      let altFile = altDir.baseName
-      if ext !=# '' | let altFile .= '.' . ext | endif
-      if filereadable(altFile) | return altFile | endif
+  for alt_dir in alt_dirs
+    for ext in alt_exts
+      let alt_file = alt_dir.base_name
+      if ext !=# '' | let alt_file .= '.' . ext | endif
+      if filereadable(alt_file) | return alt_file | endif
     endfor
   endfor
 
   return ''
 endfunction
 
-function! cdef#switchFile(...) abort
+function! cdef#switch_file(...) abort
   let keepjumps = get(a:000, 0, 0)
-  let cmdPre = keepjumps ? 'keepjumps ' : ''
-  let altFile = cdef#getSwitchFile()
+  let cmd_pre = keepjumps ? 'keepjumps ' : ''
+  let alt_file = cdef#get_switch_file()
 
-  if altFile !=# ''
-    if bufexists(altFile)
-      let bnr = bufnr(altFile) | exec cmdPre . 'buffer ' .  bnr | return 1
-    elseif filereadable(altFile)
-      silent! exec cmdPre . 'edit ' . altFile | return 1
+  if alt_file !=# ''
+    if bufexists(alt_file)
+      let bnr = bufnr(alt_file) | exec cmd_pre . 'buffer ' .  bnr | return 1
+    elseif filereadable(alt_file)
+      silent! exec cmd_pre . 'edit ' . alt_file | return 1
     endif
   endif
 
   call s:notify("alternate file doesn't exist or can't be read")
 endfunction
 
-" startLine, endLine, [register [, stripNamespace]]
+" start_line, end_line, [register [, strip_namespace]]
 " create definition at register:
 "    whole namespace if current tag is namespace
 "    whole class if current tag is namespace
 "    single function if current tag is a prototype
 "
-" if startLine == endLine, define tag scope prototypes, otherwise defines
-" prototypes between startLine and endLine
+" if start_line == end_line, define tag scope prototypes, otherwise defines
+" prototypes between start_line and end_line
 function! cdef#def(lnum0, lnum1, ...) abort
-  let [register, stripNamespace] = [get(a:000, 0, '"'), get(a:000, 1, 1)]
-  let tags = cdef#getTags()
+  let [register, strip_namespace] = [get(a:000, 0, '"'), get(a:000, 1, 1)]
+  let tags = cdef#get_tags()
   let range = [a:lnum0, a:lnum1]
 
   if a:lnum0 == a:lnum1
-    let tag = cdef#findTag(tags, a:lnum0)
+    let tag = cdef#find_tag(tags, a:lnum0)
     if tag == {} | echo 'no valid tag on current line' | return | endif
     if tag.kind ==# 'prototype'
       let range = [tag.line, tag.line]
@@ -812,32 +812,32 @@ function! cdef#def(lnum0, lnum1, ...) abort
 
   let def = ''
   for proto in tags
-    let def .= join(s:genFunc(proto, stripNamespace), "\n") . "\n"
+    let def .= join(s:gen_func(proto, strip_namespace), "\n") . "\n"
   endfor
   call setreg(register, def, 'V')
 endfunction
 
-function! cdef#createSourceFile() abort
-  if !cdef#isHeadFile() || cdef#switchFile() | return | endif
+function! cdef#create_source_file() abort
+  if !cdef#is_head_file() || cdef#switch_file() | return | endif
 
-  let altDir =  cdef#getSwitchDirs()[0]
-  let baseName = expand('%:t:r')
+  let alt_dir =  cdef#get_switch_dirs()[0]
+  let base_name = expand('%:t:r')
 
-  let file = printf('%s%s.%s', altDir, baseName, g:cdefDefaultSourceExtension)
+  let file = printf('%s%s.%s', alt_dir, base_name, g:cdef_default_source_extension)
   echo system(printf('echo ''#include "%s"''>%s', expand('%:t'), file))
   exec 'edit ' . file
   return 1
 endfunction
 
-" g:cdefProjName + dirname + filename
-function! cdef#addHeadGuard() abort
+" g:cdef_proj_name + dirname + filename
+function! cdef#add_head_guard() abort
   let dirname = expand('%:p:h:t')
   if dirname ==# 'include' || dirname ==# 'inc'
     let dirname = expand('%:p:h:h:t')
   endif
   let gatename = printf('%s_%s', dirname, substitute(expand('%:t'), "\\.", '_', 'g'))
-  if g:cdefProjName !=# ''
-    let gatename = g:cdefProjName . '_' . gatename
+  if g:cdef_proj_name !=# ''
+    let gatename = g:cdef_proj_name . '_' . gatename
   endif
   let gatename = toupper(gatename)
   exec 'keepjumps normal! ggO#ifndef ' . gatename
@@ -850,7 +850,7 @@ endfunction
 " opts.style:
 "   0 : generate getA()/setA()/toggleA() for mA, get_a()/set_a()/toggle_a() for m_a
 "   1 : generate getA()/setA()/toggleA() for mA, a()/a()/toggle_a() for m_a
-function! cdef#genGetSet(...) abort
+function! cdef#gen_get_set(...) abort
   let opts = get(a:000, 0, {})
   call extend(opts, {'const':0, 'register':'"', 'entries':'gs'}, 'keep')
 
@@ -863,12 +863,13 @@ function! cdef#genGetSet(...) abort
   endif
 
   let str = getline('.')
-  let varType = trim(matchstr(str, '\v\s*\zs[^=/]+\ze<\h\w*>'))
-  let varName = matchstr(str,  '\v<\w+>\ze\s*[;\=,]')
-  let fname = substitute(varName, '\v^m?_', '', 'g')
-  let argType = opts.const ? 'const '.varType.'&':varType
+  let var_type = trim(matchstr(str, '\v\s*\zs[^=/]+\ze<\h\w*>'))
+  let var_name = matchstr(str,  '\v<\w+>\ze\s*[;\=,({]')
+  let indent = matchstr(str, '\v^\s*')
+  let fname = substitute(var_name, '\v^m?_', '', 'g')
+  let arg_type = opts.const ? 'const '.var_type.'&':var_type
 
-  let style = get(g:, 'cdefGetSetStyle', '')
+  let style = get(g:, 'cdef_get_set_style', '')
   if style ==# ''
     if fname =~# '\v^m[A-Z]'
       let style = 'camel'
@@ -893,13 +894,13 @@ function! cdef#genGetSet(...) abort
 
   let res = ''
   if stridx(opts.entries, 'g') !=# -1
-    let res .= printf("%s %s() const { return %s; }\n", argType, gfname, varName)
+    let res .= printf("%s%s %s() const { return %s; }\n", indent, arg_type, gfname, var_name)
   endif
   if stridx(opts.entries, 's') !=# -1
-    let res .= printf("void %s(%s v){ %s = v; }\n", sfname, argType, varName)
+    let res .= printf("%svoid %s(%s v){ %s = v; }\n", indent, sfname, arg_type, var_name)
   endif
   if stridx(opts.entries, 't') != -1
-    let res .= printf("void toggle%s() { %s = !%s; }\n", tfname, varName, varName)
+    let res .= printf("%svoid toggle%s() { %s = !%s; }\n", indent, tfname, var_name, var_name)
   endif
 
   exec 'let @'.opts.register.' = res'
