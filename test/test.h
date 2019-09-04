@@ -46,6 +46,8 @@ namespace N
     void test_N_C0_reload(int a, int b) const;
     void test_N_C0_reload(int a, int b, float c) const;
 
+    C0(C0&& c) = delete;
+
     void operator()();
 
     void operator+(int i);

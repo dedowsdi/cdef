@@ -808,11 +808,14 @@ function! cdef#def(lnum0, lnum1, ...) abort
     endif
   endif
 
-  call filter(tags, 'v:val.kind ==# ''prototype'' && v:val.line >= range[0] && v:val.line <= range[1]')
+  call filter(tags,
+        \ {i,v -> v.kind == 'prototype' && !cdef#has_property(v, 'delete') &&
+        \ v.line >= range[0] && v.line <= range[1] } )
 
   let def = ''
   for proto in tags
     let def .= join(s:gen_func(proto, strip_namespace), "\n") . "\n"
+    call s:debug('create def for : ' . proto.name)
   endfor
   call setreg(register, def, 'V')
 endfunction
