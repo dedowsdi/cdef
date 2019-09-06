@@ -550,7 +550,7 @@ function! cdef#handle_default_value(str, boundary, operation) abort
   " skip 1st ( of operator()()
   let pos = a:boundary ==# ')' ? stridx(a:str, '(') : 0
   let dvs = []  " default values, [[startPos, endPos], ...]
-  let [open_pairs, close_pairs, stack, target] = ['<([{"', '>)]}"',0 , ','.a:boundary]
+  let [open_pairs, close_pairs, target] = ['<([{"', '>)]}"', ','.a:boundary]
 
   " get =, ignore !=, +=,etc
   while 1
@@ -850,36 +850,15 @@ function! cdef#add_head_guard() abort
   keepjumps normal! ggjj
 endfunction
 
-" opts.style:
-"   0 : generate getA()/setA()/toggleA() for mA, get_a()/set_a()/toggle_a() for m_a
-"   1 : generate getA()/setA()/toggleA() for mA, a()/a()/toggle_a() for m_a
-function! cdef#gen_get_set(...) abort
-  let opts = get(a:000, 0, {})
-  call extend(opts, {'const':0, 'register':'"', 'entries':'gs'}, 'keep')
-
-  " q-args will pass empty register
-  if opts.register ==# '' | let opts.register = '"' | endif
-
-  "add extra blink line if register is uppercase
-  if opts.register =~# '\v[A-Z]'
-    exec 'let @'.opts.register.' = "\n"'
-  endif
-
-  let str = getline('.')
-  let var_type = trim(matchstr(str, '\v\s*\zs[^=/]+\ze<\h\w*>'))
+function! s:gen_get_set_at(opts, lnum) abort
+  let str = getline(a:lnum)
+  let var_type = trim(matchstr(str, '\v\s*\zs[^=/{(]+\ze<\h\w*>'))
   let var_name = matchstr(str,  '\v<\w+>\ze\s*[;\=,({]')
   let indent = matchstr(str, '\v^\s*')
   let fname = substitute(var_name, '\v^m?_', '', 'g')
-  let arg_type = opts.const ? 'const '.var_type.'&':var_type
+  let arg_type = a:opts.const ? 'const '.var_type.'&':var_type
 
-  let style = get(g:, 'cdef_get_set_style', '')
-  if style ==# ''
-    if fname =~# '\v^m[A-Z]'
-      let style = 'camel'
-    else
-      let style = 'snake'
-    endif
-  endif
+  let style = get(g:, 'cdef_get_set_style', fname =~# '\v^m[A-Z]' ? 'camel' : 'snake' )
 
   if style ==# 'camel'
     let fname = toupper(fname[0:0]) . fname[1:]
@@ -896,15 +875,56 @@ function! cdef#gen_get_set(...) abort
   endif
 
   let res = ''
-  if stridx(opts.entries, 'g') !=# -1
+  if stridx(a:opts.entries, 'g') !=# -1
     let res .= printf("%s%s %s() const { return %s; }\n", indent, arg_type, gfname, var_name)
   endif
-  if stridx(opts.entries, 's') !=# -1
+  if stridx(a:opts.entries, 's') !=# -1
     let res .= printf("%svoid %s(%s v){ %s = v; }\n", indent, sfname, arg_type, var_name)
   endif
-  if stridx(opts.entries, 't') != -1
+  if stridx(a:opts.entries, 't') != -1
     let res .= printf("%svoid toggle%s() { %s = !%s; }\n", indent, tfname, var_name, var_name)
   endif
 
-  exec 'let @'.opts.register.' = res'
+  return res
+endfunction
+
+" opts.style:
+"   0 : generate getA()/setA()/toggleA() for mA, get_a()/set_a()/toggle_a() for m_a
+"   1 : generate getA()/setA()/toggleA() for mA, a()/a()/toggle_a() for m_a
+function! cdef#gen_get_set(opts, line1, line2) abort
+
+  call extend(a:opts, {'const':0, 'register':'"', 'entries':'gs'}, 'keep')
+  " q-args will pass empty register
+  if a:opts.register ==# '' | let a:opts.register = '"' | endif
+
+  let res = ''
+  for line in range(a:line1, a:line2)
+    if res !=# ''
+      let res .= "\n"
+    endif
+    let res .= s:gen_get_set_at(a:opts, line)
+  endfor
+  exec 'let @'.a:opts.register.' = res'
+
+endfunction
+
+function! s:get_c(lnum, cnum) abort
+  return matchstr(getline(a:lnum), '\%' . a:cnum . 'c.')
+endfunction
+
+function! s:get_cc() abort
+  return :get_c(line('.'), col('.'))
+endfunction
+
+function! cdef#sel_expression()
+  if s:get_cc() !~? '[a-z]'
+    return
+  endif
+
+  " move cursor to start of current word
+  norm! "_yiw
+  norm! v
+  call misc#search_over_pairs(',;!%^&=)]}>', '([{<', '')
+
+  
 endfunction
