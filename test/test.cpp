@@ -12,6 +12,10 @@ void test_global_single_default(int i)
 {
 }
 
+void test_global_single_anonymous_default(const std::string& s, int i)
+{
+}
+
 void test_global_single_default_vec(const std::vector<int>& v)
 {
 }
@@ -32,7 +36,7 @@ void test_global_space_type(unsigned a)
 {
 }
 
-void test_global_space_type_anomymous(long long, signed int, unsigned)
+void test_global_space_type_anonymous(long long, signed int, unsigned)
 {
 }
 

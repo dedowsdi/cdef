@@ -554,7 +554,8 @@ function! cdef#handle_default_value(str, boundary, operation) abort
 
   " get =, ignore !=, +=,etc
   while 1
-    let frag = matchstrpos(a:str, '\v\s*([!%^&|+\-*/<>])@<!\=', pos + 1)
+    " let frag = matchstrpos(a:str, '\v\s*([!%^&|+\-*/<>])@<!\=', pos + 1)
+    let frag = matchstrpos(a:str, '\v\s*\=', pos + 1)
     if frag[2] == -1 | break | endif
     let pos = s:search_string_over_pairs(a:str, frag[2], target, open_pairs, close_pairs, 'l')
     if pos == -1  && a:boundary ==# '>'
@@ -913,18 +914,15 @@ function! s:get_c(lnum, cnum) abort
 endfunction
 
 function! s:get_cc() abort
-  return :get_c(line('.'), col('.'))
+  return s:get_c(line('.'), col('.'))
 endfunction
+
 
 function! cdef#sel_expression()
   if s:get_cc() !~? '[a-z]'
     return
   endif
 
-  " move cursor to start of current word
-  norm! "_yiw
-  norm! v
-  call misc#search_over_pairs(',;!%^&=)]}>', '([{<', '')
-
-  
+  norm! viw
+  call s:search_expression()
 endfunction
