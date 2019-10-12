@@ -916,13 +916,3 @@ endfunction
 function! s:get_cc() abort
   return s:get_c(line('.'), col('.'))
 endfunction
-
-
-function! cdef#sel_expression()
-  if s:get_cc() !~? '[a-z]'
-    return
-  endif
-
-  norm! viw
-  call s:search_expression()
-endfunction
