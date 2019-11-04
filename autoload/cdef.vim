@@ -4,8 +4,14 @@ endif
 let g:loaded_cdef = 1
 
 let g:cdef_macros = get(g:, 'cdef_macros', ' -D "META_Object(library,name)=" ')
-let g:cdef_ctag_cmd_pre = 'ctags 2>/dev/null -f - --excmd=number --sort=no --fields=KsSe
-    \ --fields-c++=+{properties}{template} --kinds-c++=ncsfp --language-force=c++ ' . g:cdef_macros
+let g:cdef_ctag_cmd_pre = 'ctags 2>/dev/null 
+      \ --options=NONE -f -
+      \ --excmd=number
+      \ --sort=no
+      \ --fields=KsSe
+      \ --fields-c++=+{properties}{template}
+      \ --kinds-c++=ncsfp
+      \ --language-force=c++ ' . g:cdef_macros
 let g:cdef_default_source_extension = get(g: , 'cdef_default_source_extension', 'cpp')
 let g:cdef_proj_name = get(g:, 'cdef_proj_name', '')
 let s:src_exts = ['c', 'cpp', 'cxx', 'cc', 'inl']
