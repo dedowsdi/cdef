@@ -625,8 +625,33 @@ function! s:add_start_and_to_proto(proto) abort
   endtry
 endfunction
 
+function! s:select_a_space() abort
+  let end_lnum = line('.')
+
+  " search next non-blank lines or last line
+  if search('\v^.*\S|%$', 'W')
+    if getline('.') =~# '\S'
+      -
+    endif
+    return
+  endif
+
+  " if no space after endline, search backward from startline
+  if line('.') == end_lnum
+    normal! o0
+    " search previous non-blank lines or first line
+    if search('\v^.*\S|%1l', 'bW')
+      if getline('.') =~# '\S'
+        +
+      endif
+    endif
+    normal! o^
+  endif
+  
+endfunction
+
 " select function or prototype
-function! cdef#sel_pf(ai)
+function! cdef#sel_pf(ai) abort
   let tags = filter(cdef#get_tags(),
         \ 'v:val.kind ==# ''prototype'' || v:val.kind ==# ''function''')
   let [tag, pos] = [{}, getpos('.')]
@@ -645,19 +670,29 @@ function! cdef#sel_pf(ai)
   call cursor(tag.start, 0)
   normal! V
   call cursor(tag.end, 0)
-  " add trailing or preceding space for 'a'
   if a:ai ==# 'a'
-    if search('\v^.*\S.*$', 'W')
-      :-
+    call s:select_a_space()
+  endif
+endfunction
+
+" select class or struct
+function! cdef#sel_class(ai) abort
+  let tags = filter(cdef#get_tags(),
+        \ 'v:val.kind ==# ''class'' || v:val.kind ==# ''struct''')
+  let [tag, pos] = [{}, getpos('.')]
+  for item in tags
+    let item.start = s:get_template_start(item)
+    if pos[1] >= item.start && pos[1] <= item.end
+      let tag = item | break
     endif
-    if line('.') == tag.end
-      normal! o0
-      " include preceding spaces if no following spaces exist
-      if search('\v^.*\S.*$', 'bW')
-        :+
-      endif
-      normal! o^
-    endif
+  endfor
+
+  if tag == {} | return | endif
+  call cursor(tag.start, 0)
+  normal! V
+  call cursor(tag.end, 0)
+  if a:ai ==# 'a'
+    call s:select_a_space()
   endif
 endfunction
 
