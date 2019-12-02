@@ -33,7 +33,7 @@ let s:NOTIFY_INFO = 4
 let s:NOTIFY_DEBUG = 5
 let s:NOTIFY_TRIVIAL = 6
 
-function! s:notify(msg, ...) abort
+function s:notify(msg, ...) abort
   let lvl = get(a:000, 0, s:NOTIFY_NOTICE)
   if lvl > g:cdef_notify_severity | return | endif
   if lvl == s:NOTIFY_FATEL
@@ -43,29 +43,29 @@ function! s:notify(msg, ...) abort
   endif
 endfunction
 
-function! s:always(msg) abort
+function s:always(msg) abort
   call s:notify(a:msg, s:NOTIFY_ALWAYS)
 endfunction
-function! s:fatel(msg) abort
+function s:fatel(msg) abort
   call s:notify(a:msg, s:NOTIFY_FATEL)
 endfunction
-function! s:warn(msg) abort
+function s:warn(msg) abort
   call s:notify(a:msg, s:NOTIFY_WARN)
 endfunction
-function! s:notice(msg) abort
+function s:notice(msg) abort
   call s:notify(a:msg, s:NOTIFY_NOTICE)
 endfunction
-function! s:info(msg) abort
+function s:info(msg) abort
   call s:notify(a:msg, s:NOTIFY_INFO)
 endfunction
-function! s:debug(msg) abort
+function s:debug(msg) abort
   call s:notify(a:msg, s:NOTIFY_DEBUG)
 endfunction
-function! s:trivial(msg) abort
+function s:trivial(msg) abort
   call s:notify(a:msg, s:NOTIFY_TRIVIAL)
 endfunction
 
-function! s:open(file) abort
+function s:open(file) abort
   let nr = bufnr(a:file)
   if nr == bufnr('') | return | endif
   if nr != -1
@@ -75,7 +75,7 @@ function! s:open(file) abort
   endif
 endfunction
 
-function! s:str_to_tag(str) abort
+function s:str_to_tag(str) abort
   let l = split(a:str, "\t")
 
   if len(l) < 3 | echom 'failed to parse "' . a:str . "'" | return {} | endif
@@ -113,39 +113,39 @@ function! s:str_to_tag(str) abort
   return d
 endfunction
 
-function! cdef#has_property(tag, property) abort
+function cdef#has_property(tag, property) abort
   return has_key(a:tag, 'properties') &&  stridx(a:tag.properties, a:property) != -1
 endfunction
 
-function! cdef#is_pure(tag) abort
+function cdef#is_pure(tag) abort
   return cdef#has_property(a:tag, 'pure')
 endfunction
 
-function! cdef#is_deleted(tag) abort
+function cdef#is_deleted(tag) abort
   return cdef#has_property(a:tag, 'delete')
 endfunction
 
-function! cdef#is_inline(tag) abort
+function cdef#is_inline(tag) abort
   return cdef#has_property(a:tag, 'inline')
 endfunction
 
-function! cdef#is_virtual(tag) abort
+function cdef#is_virtual(tag) abort
   return cdef#has_property(a:tag, 'virtual')
 endfunction
 
-function! cdef#is_static(tag) abort
+function cdef#is_static(tag) abort
   return cdef#has_property(a:tag, 'static')
 endfunction
 
-function! cdef#is_const(tag) abort
+function cdef#is_const(tag) abort
   return cdef#has_property(a:tag, 'const')
 endfunction
 
-function! cdef#has_template(tag) abort
+function cdef#has_template(tag) abort
   return has_key(a:tag, 'template')
 endfunction
 
-function! cdef#get_tags(...) abort
+function cdef#get_tags(...) abort
   let ctag_cmd = get(a:000, 0, g:cdef_ctag_cmd_pre . expand('%:p')  )
   let l = systemlist(ctag_cmd)
   if !empty(l) && l[0][0:4] ==# 'ctags:'
@@ -198,25 +198,25 @@ function! cdef#get_tags(...) abort
   return tags
 endfunction
 
-function! cdef#create_tag(name, file, line, kind, ...) abort
+function cdef#create_tag(name, file, line, kind, ...) abort
   let tag = {'name':a:name, 'file':a:file, 'line':a:line, 'kind':a:kind}
   call extend(tag, get(a:000, 0, {}), 'keep') | return tag
 endfunction
 
-function! cdef#find_tag(tags, lnum) abort
+function cdef#find_tag(tags, lnum) abort
   let l = filter(copy(a:tags), 'v:val.line == a:lnum')
   return empty(l) ? {} : l[0]
 endfunction
 
 "([line])
-function! cdef#get_tag_at_line(...) abort
+function cdef#get_tag_at_line(...) abort
   let lnum = get(a:000, 0, line('.'))
   let ctag_cmd = g:cdef_ctag_cmd_pre . expand('%:p') . ' | grep -P ''\t'.lnum.';"'''
   let tags = cdef#get_tags(ctag_cmd)
   return cdef#find_tag(tags, lnum)
 endfunction
 
-function! cdef#pf_to_string(tag) abort
+function cdef#pf_to_string(tag) abort
   let str = a:tag.name . cdef#handle_default_value(a:tag.signature, ')', 1)
   if has_key(a:tag, 'scope')
     let str = a:tag.scope . '::' . str
@@ -228,7 +228,7 @@ function! cdef#pf_to_string(tag) abort
   return str
 endfunction
 
-function! cdef#get_prototype_string(prototype) abort
+function cdef#get_prototype_string(prototype) abort
   let str = a:prototype.name . cdef#handle_default_value(a:prototype.signature, ')', 1)
   if has_key(a:prototype, 'scope')
     let str = a:prototype.scope . '::' . str
@@ -240,7 +240,7 @@ function! cdef#get_prototype_string(prototype) abort
   return str
 endfunction
 
-function! s:scroll(lnum) abort
+function s:scroll(lnum) abort
   let wlnum = winline()
   if a:lnum > wlnum
     exec printf('normal! %d', a:lnum - wlnum)
@@ -255,7 +255,7 @@ endfunction
 " scopes will be splited by :: and compared from right to left, the one with the
 " more matched scope win(return -1), if they have the same matches, the one with
 " less scopes win
-function! s:compare_candidate(t0, t1, t2)
+function s:compare_candidate(t0, t1, t2)
   if empty(a:t0.scope) | throw 'empty original scope during candidate comparing' | endif
   let s0 = reverse(split(a:t0.scope, '::'))
   let s1 = reverse(split(a:t1.scope, '::'))
@@ -272,7 +272,7 @@ function! s:compare_candidate(t0, t1, t2)
   return m1 > m2 ? -1 : 1
 endfunction
 
-function! cdef#reset_candidates(tag, candidates)
+function cdef#reset_candidates(tag, candidates)
   let [s:candidates, s:candidate_index] = [a:candidates, 0]
   " if current tag has no scope, remove all class or namespace items
   if empty(a:tag.scope) | call filter(s:candidates, 'empty(v:val.scope)') | endif
@@ -283,7 +283,7 @@ function! cdef#reset_candidates(tag, candidates)
   endfor
 endfunction
 
-function! cdef#select_candidate(idx) abort
+function cdef#select_candidate(idx) abort
   if empty(s:candidates) || a:idx >= len(s:candidates)
     echohl WarningMsg | echo a:idx 'overflow' | echohl None | return
   endif
@@ -295,7 +295,7 @@ function! cdef#select_candidate(idx) abort
   endif
 endfunction
 
-function! cdef#select_next_candidate() abort
+function cdef#select_next_candidate() abort
   if empty(s:candidates) | return | endif
   let next_index = s:candidate_index + 1
   if next_index == len(s:candidates)
@@ -307,7 +307,7 @@ function! cdef#select_next_candidate() abort
   call cdef#select_candidate(next_index)
 endfunction
 
-function! s:search_functions(proto_tag, tags) abort
+function s:search_functions(proto_tag, tags) abort
   let res = []
   for func_tag in a:tags
     if func_tag.kind !=# 'function' | continue | endif
@@ -316,7 +316,7 @@ function! s:search_functions(proto_tag, tags) abort
   return res
 endfunction
 
-function! cdef#search_functions(proto_tag, tags, alt_file) abort
+function cdef#search_functions(proto_tag, tags, alt_file) abort
   call s:debug('search functions for : ' . cdef#pf_to_string(a:proto_tag))
   let l = s:search_functions(a:proto_tag, a:tags)
   " search in alternate file
@@ -328,7 +328,7 @@ function! cdef#search_functions(proto_tag, tags, alt_file) abort
   call cdef#reset_candidates(a:proto_tag, l)
 endfunction
 
-function! s:search_prototypes(proto_tag, tags) abort
+function s:search_prototypes(proto_tag, tags) abort
   let res = []
   for func_tag in a:tags
     if func_tag.kind !=# 'prototype' | continue | endif
@@ -337,7 +337,7 @@ function! s:search_prototypes(proto_tag, tags) abort
   return res
 endfunction
 
-function! cdef#search_prototypes(func_tag, tags0, alt_file) abort
+function cdef#search_prototypes(func_tag, tags0, alt_file) abort
   call s:debug('search prototypes for : ' . cdef#pf_to_string(a:func_tag))
   let l = s:search_prototypes(a:func_tag, a:tags0)
   " search in alternate file
@@ -349,7 +349,7 @@ function! cdef#search_prototypes(func_tag, tags0, alt_file) abort
   call cdef#reset_candidates(a:func_tag, l)
 endfunction
 
-function! cdef#switch_proto_func() abort
+function cdef#switch_proto_func() abort
   let tags = cdef#get_tags()
   let t0 = cdef#find_tag(tags, line('.'))
   if t0 == {} || (t0.kind !=# 'prototype' && t0.kind !=# 'function') | return 0 | endif
@@ -362,13 +362,13 @@ function! cdef#switch_proto_func() abort
   call cdef#select_candidate(0) | call s:scroll(wlnum0) | return 1
 endfunction
 
-function! s:gen_func(prototype, ns_full_name) abort
+function s:gen_func(prototype, ns_full_name) abort
   let head = cdef#gen_func_head(a:prototype, a:ns_full_name)
   let body = deepcopy(s:func_body, a:ns_full_name)
   return head + s:func_body
 endfunction
 
-function! cdef#get_template(tag) abort
+function cdef#get_template(tag) abort
   let template = ''
 
   if has_key(a:tag.class_tag, 'template')
@@ -415,7 +415,7 @@ let s:space_types = [
       \ ['\v<signed>'                        , 'int'],
       \ ]
 
-function! cdef#cmp_sig(s0, s1) abort
+function cdef#cmp_sig(s0, s1) abort
   if a:s0 == a:s1 | return 1 | endif
 
   if xor(a:s0[-5:-1] ==# 'const', a:s1[-5:-1] ==# 'const') | return 0 | endif
@@ -475,7 +475,7 @@ function! cdef#cmp_sig(s0, s1) abort
   return 1
 endfunction
 
-function! s:print_cmp_result(desc, t0, t1) abort
+function s:print_cmp_result(desc, t0, t1) abort
   if g:cdef_notify_severity >= s:NOTIFY_TRIVIAL
     call s:trivial(a:desc)
     call s:trivial(printf('    %s', cdef#get_prototype_string(a:t0)))
@@ -484,7 +484,7 @@ function! s:print_cmp_result(desc, t0, t1) abort
 endfunction
 
 " namespaces and classes are ignored
-function! cdef#cmp_proto_and_func(t0, t1) abort
+function cdef#cmp_proto_and_func(t0, t1) abort
   if a:t0.name !=# a:t1.name | return 0 | endif
 
   let sig0 = cdef#handle_default_value(a:t0.signature, ')', '1')
@@ -507,18 +507,18 @@ function! cdef#cmp_proto_and_func(t0, t1) abort
   return 1
 endfunction
 
-function! s:get_prototype_namespace_full_name() dict abort
+function s:get_prototype_namespace_full_name() dict abort
   return self.namespace.fullname
 endfunction
 
-function! s:hook_method(tags, name, ref_name) abort
+function s:hook_method(tags, name, ref_name) abort
   for tag in a:tags
     let tag[a:name] = function(a:ref_name)
   endfor
 endfunction
 
 " if you want to search > for < , make sure start is greater than pos of <
-function! s:search_string_over_pairs(str, start, target, open_pairs, close_pairs, direction) abort
+function s:search_string_over_pairs(str, start, target, open_pairs, close_pairs, direction) abort
   if a:start >= len(a:str) | return -1 | endif
 
   let step = a:direction ==# 'l' ? 1 : -1
@@ -552,7 +552,7 @@ endfunction
 "   0 : comment
 "   1 : remove
 " boundary : > for template, ) for function parameter
-function! cdef#handle_default_value(str, boundary, operation) abort
+function cdef#handle_default_value(str, boundary, operation) abort
   " skip 1st ( of operator()()
   let pos = a:boundary ==# ')' ? stridx(a:str, '(') : 0
   let dvs = []  " default values, [[startPos, endPos], ...]
@@ -595,7 +595,7 @@ function! cdef#handle_default_value(str, boundary, operation) abort
   return res_str
 endfunction
 
-function! s:get_template_start(tag)
+function s:get_template_start(tag)
   try
     let oldpos = getpos('.') | call cursor(a:tag.line, 1)
     if cdef#has_template(a:tag)
@@ -611,7 +611,7 @@ function! s:get_template_start(tag)
 endfunction
 
 " start = template line, end = ; line
-function! s:add_start_and_to_proto(proto) abort
+function s:add_start_and_to_proto(proto) abort
   if a:proto.kind !=# 'prototype' | return | endif
   if has_key(a:proto, 'start') && has_key(a:proto, 'end') | return | endif
 
@@ -631,7 +631,7 @@ function! s:add_start_and_to_proto(proto) abort
   endtry
 endfunction
 
-function! s:select_a_space() abort
+function s:select_a_space() abort
   let end_lnum = line('.')
 
   " search next non-blank lines or last line
@@ -657,7 +657,7 @@ function! s:select_a_space() abort
 endfunction
 
 " select function or prototype
-function! cdef#sel_pf(ai) abort
+function cdef#sel_pf(ai) abort
   let tags = filter(cdef#get_tags(),
         \ 'v:val.kind ==# ''prototype'' || v:val.kind ==# ''function''')
   let [tag, pos] = [{}, getpos('.')]
@@ -682,7 +682,7 @@ function! cdef#sel_pf(ai) abort
 endfunction
 
 " select class or struct
-function! cdef#sel_class(ai) abort
+function cdef#sel_class(ai) abort
   let tags = filter(cdef#get_tags(),
         \ 'v:val.kind ==# ''class'' || v:val.kind ==# ''struct''')
   let [tag, pos] = [{}, getpos('.')]
@@ -703,7 +703,7 @@ function! cdef#sel_class(ai) abort
 endfunction
 
 " (proro, strip_namespace [, with_hat])
-function! cdef#gen_func_head(proto, strip_namespace, ...) abort
+function cdef#gen_func_head(proto, strip_namespace, ...) abort
   let with_hat = get(a:000, 0, 1)
   call s:add_start_and_to_proto(a:proto)
   let func_head_list = getline(a:proto.start, a:proto.end)
@@ -768,15 +768,15 @@ function! cdef#gen_func_head(proto, strip_namespace, ...) abort
   return arr
 endfunction
 
-function! cdef#is_head_file() abort
+function cdef#is_head_file() abort
   return index(s:head_exts, expand('%:e') ) >= 0
 endfunction
 
-function! cdef#is_source_file() abort
+function cdef#is_source_file() abort
   return index(s:src_exts, expand('%:e') ) >= 0
 endfunction
 
-function! cdef#get_switch_dirs() abort
+function cdef#get_switch_dirs() abort
   "take care of file path like include/subdir/file.h
   let dir_path = expand('%:p:h')
   let l = matchlist(dir_path, '\v(.*)(<include>|<src>)(.*)')
@@ -793,7 +793,7 @@ function! cdef#get_switch_dirs() abort
   return [alt_dir, dir_path.'/']
 endfunction
 
-function! cdef#get_switch_file() abort
+function cdef#get_switch_file() abort
   let alt_dirs = cdef#get_switch_dirs()
   let alt_exts = cdef#is_head_file() ? s:src_exts : s:head_exts
   let base_name = expand('%:t:r')
@@ -809,7 +809,7 @@ function! cdef#get_switch_file() abort
   return ''
 endfunction
 
-function! cdef#switch_file(...) abort
+function cdef#switch_file(...) abort
   let keepjumps = get(a:000, 0, 0)
   let cmd_pre = keepjumps ? 'keepjumps ' : ''
   let alt_file = cdef#get_switch_file()
@@ -833,7 +833,7 @@ endfunction
 "
 " if start_line == end_line, define tag scope prototypes, otherwise defines
 " prototypes between start_line and end_line
-function! cdef#def(lnum0, lnum1, ...) abort
+function cdef#def(lnum0, lnum1, ...) abort
   let [register, strip_namespace] = [get(a:000, 0, '"'), get(a:000, 1, 1)]
   let tags = cdef#get_tags()
   let range = [a:lnum0, a:lnum1]
@@ -862,7 +862,7 @@ function! cdef#def(lnum0, lnum1, ...) abort
   call setreg(register, def, 'V')
 endfunction
 
-function! cdef#create_source_file() abort
+function cdef#create_source_file() abort
   if !cdef#is_head_file() || cdef#switch_file() | return | endif
 
   let alt_dir =  cdef#get_switch_dirs()[0]
@@ -875,7 +875,7 @@ function! cdef#create_source_file() abort
 endfunction
 
 " g:cdef_proj_name + dirname + filename
-function! cdef#add_head_guard() abort
+function cdef#add_head_guard() abort
   let dirname = expand('%:p:h:t')
   if dirname ==# 'include' || dirname ==# 'inc'
     let dirname = expand('%:p:h:h:t')
@@ -892,7 +892,7 @@ function! cdef#add_head_guard() abort
   keepjumps normal! ggjj
 endfunction
 
-function! s:gen_get_set_at(opts, lnum) abort
+function s:gen_get_set_at(opts, lnum) abort
   let str = getline(a:lnum)
   let var_type = trim(matchstr(str, '\v\s*\zs[^=/{(]+\ze<\h\w*>'))
   let var_name = matchstr(str,  '\v<\w+>\ze\s*[;\=,({]')
@@ -933,7 +933,7 @@ endfunction
 " opts.style:
 "   0 : generate getA()/setA()/toggleA() for mA, get_a()/set_a()/toggle_a() for m_a
 "   1 : generate getA()/setA()/toggleA() for mA, a()/a()/toggle_a() for m_a
-function! cdef#gen_get_set(opts, line1, line2) abort
+function cdef#gen_get_set(opts, line1, line2) abort
 
   call extend(a:opts, {'const':0, 'register':'"', 'entries':'gs'}, 'keep')
   " q-args will pass empty register
@@ -950,10 +950,10 @@ function! cdef#gen_get_set(opts, line1, line2) abort
 
 endfunction
 
-function! s:get_c(lnum, cnum) abort
+function s:get_c(lnum, cnum) abort
   return matchstr(getline(a:lnum), '\%' . a:cnum . 'c.')
 endfunction
 
-function! s:get_cc() abort
+function s:get_cc() abort
   return s:get_c(line('.'), col('.'))
 endfunction
