@@ -782,10 +782,9 @@ function cdef#get_switch_dirs() abort
   elseif l[2] ==# 'src'
     let alt_dir = l[1] . 'include' . l[3]
   endif
-  let alt_dir .= '/'
 
   " add current dir, in case .h and .cpp resides in the same src or include
-  return [alt_dir, dir_path.'/']
+  return [alt_dir, dir_path]
 endfunction
 
 function cdef#get_switch_file() abort
@@ -795,7 +794,7 @@ function cdef#get_switch_file() abort
 
   for alt_dir in alt_dirs
     for ext in alt_exts
-      let alt_file = alt_dir.base_name
+      let alt_file = printf('%s/%s', alt_dir, base_name)
       if ext !=# '' | let alt_file .= '.' . ext | endif
       if filereadable(alt_file) | return alt_file | endif
     endfor
@@ -817,7 +816,9 @@ function cdef#switch_file(...) abort
     endif
   endif
 
-  call s:notify("alternate file doesn't exist or can't be read")
+  if get(a:000, 1, 1)
+    call s:notify("alternate file doesn't exist or can't be read")
+  endif
 endfunction
 
 " start_line, end_line, [register [, strip_namespace]]
@@ -858,14 +859,19 @@ function cdef#def(lnum0, lnum1, ...) abort
 endfunction
 
 function cdef#create_source_file() abort
-  if !cdef#is_head_file() || cdef#switch_file() | return | endif
+  if !cdef#is_head_file() || cdef#switch_file(0, 0) | return | endif
 
   let alt_dir =  cdef#get_switch_dirs()[0]
   let base_name = expand('%:t:r')
+  let src_file = printf('%s/%s.%s', alt_dir, base_name, g:cdef_default_source_extension)
 
-  let file = printf('%s%s.%s', alt_dir, base_name, g:cdef_default_source_extension)
-  echo system(printf('echo ''#include "%s"''>%s', expand('%:t'), file))
-  exec 'edit ' . file
+  let head_file = expand('%:t')
+  let include = printf(alt_dir ==# expand('%:p:h') ?
+        \ '#include "%s"' : '#include <%s>', head_file)
+
+  exe 'e' src_file
+  call setline(1, include)
+
   return 1
 endfunction
 
