@@ -6,7 +6,7 @@ let v:errors = []
 
 normal! mM
 echom 'reload cdef.vim'
-let t0 = reltime() | exec 'edit ' s:cdef_autoload | VimlReloadScript
+let t0 = reltime() | exec 'edit ' s:cdef_autoload | source %
 echom 'reload finished at' reltimestr(reltime(t0)) 'seconds'
 
 echom 'start test switch proto func'

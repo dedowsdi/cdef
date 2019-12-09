@@ -1,8 +1,3 @@
-if exists('g:loaded_cdef')
-  finish
-endif
-let g:loaded_cdef = 1
-
 let g:cdef_macros = get(g:, 'cdef_macros', ' -D "META_Object(library,name)=" ')
 let g:cdef_ctag_cmd_pre = 'ctags 2>/dev/null 
       \ --options=NONE -f -
