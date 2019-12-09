@@ -5,6 +5,7 @@ let g:loaded_cdef_plugin = 1
 
 if !executable('ctags')
   echohl WarningMsg | echom 'CDEF : missing ctags' | echohl None
+  finish
 endif
 
 com -nargs=* -range CdefDef       : call cdef#def(<line1>, <line2>, <f-args>)
