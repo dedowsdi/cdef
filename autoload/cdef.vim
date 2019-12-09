@@ -886,11 +886,15 @@ function cdef#add_head_guard() abort
     let gatename = g:cdef_proj_name . '_' . gatename
   endif
   let gatename = toupper(gatename)
-  exec 'keepjumps normal! ggO#ifndef ' . gatename
-  exec 'normal! o#define ' . gatename
-  exec 'normal! o'
-  exec 'keepjumps normal! Go#endif /* ' . gatename . ' */'
-  keepjumps normal! ggjj
+
+  if stridx(getline(1), gatename) != -1
+    echom 'ignored, head guard already exists'
+    return 0
+  endif
+
+  call append(0, [ printf('#ifndef %s', gatename), printf('#define %s', gatename) ])
+  call append(line('$'), [ printf('#endif // %s', gatename) ])
+  return 1
 endfunction
 
 function s:gen_get_set_at(opts, lnum) abort
