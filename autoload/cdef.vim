@@ -74,13 +74,16 @@ function s:str_to_tag(str) abort
 
   if len(l) < 3 | echom 'failed to parse "' . a:str . "'" | return {} | endif
 
+  " first 4 parts is fixed
   let d = {'name':l[0], 'file':l[1], 'line':str2nr(l[2][:-3]), 'kind':l[3]}
+
   " name of `int operator[] (...)`  will contain trailing space, it must be removed
-  if d.name[-1:] ==# ' ' | let d.name = d.name[0 : -2] | endif
+  let d.name = trim(d.name)
 
   " always use class
-  if d.kind ==#'struct' | let d.kind = 'class' | endif
+  if d.kind ==# 'struct' | let d.kind = 'class' | endif
 
+  " assume name:value format from 5th part
   for item in l[4:]
     let idx = stridx(item, ':')
     let [field, content] = [item[0:idx-1], item[idx+1:]]
@@ -92,6 +95,7 @@ function s:str_to_tag(str) abort
   " if it already add class.
   if has_key(d, 'struct') | let d['class'] = d.struct | endif
 
+  " the scope part can be skipped if ctags is created with Z field
   if d.kind ==# 'prototype' || d.kind ==# 'function'
     call extend(d, {'class':'', 'namespace':'', 'class_tag':{}, 'namespace_tag':{}}, 'keep')
     if !empty(d.class)
@@ -101,6 +105,7 @@ function s:str_to_tag(str) abort
     else
       let d.scope = ''
     endif
+
     let d.fullname = has_key(d, 'scope') ? d.scope.'::'.d.name : d.name
   endif
 
