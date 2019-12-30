@@ -81,7 +81,7 @@ function s:str_to_tag(str) abort
   let d.name = trim(d.name)
 
   " always use class
-  if d.kind ==# 'struct' | let d.kind = 'class' | endif
+  if d.kind =~# '^s' | let d.kind = 'class' | endif
 
   " assume name:value format from 5th part
   for item in l[4:]
@@ -96,7 +96,7 @@ function s:str_to_tag(str) abort
   if has_key(d, 'struct') | let d['class'] = d.struct | endif
 
   " the scope part can be skipped if ctags is created with Z field
-  if d.kind ==# 'prototype' || d.kind ==# 'function'
+  if d.kind =~# '^[pf]'
     call extend(d, {'class':'', 'namespace':'', 'class_tag':{}, 'namespace_tag':{}}, 'keep')
     if !empty(d.class)
       let d.scope = d.class
@@ -188,7 +188,7 @@ function cdef#get_tags(...) abort
       endif
       call s:trivial(printf('tag : push class %s', tag.name))
       let class_stack += [tag]
-    elseif tag.kind ==# 'prototype' || tag.kind ==# 'function'
+    elseif tag.kind =~# '^[pf]'
       let tag['class_tag'] = get(class_stack, -1, {})
       let tag['namespace_tag'] = get(namespace_stack, -1, {})
       if tag.namespace_tag != {} | let tag.namespace = tag.namespace_tag.name | endif
@@ -309,7 +309,7 @@ endfunction
 function s:search_functions(proto_tag, tags) abort
   let res = []
   for func_tag in a:tags
-    if func_tag.kind !=# 'function' | continue | endif
+    if func_tag.kind !~# '^f' | continue | endif
     if cdef#cmp_proto_and_func(a:proto_tag, func_tag) | call add(res, func_tag) | endif
   endfor
   return res
@@ -330,7 +330,7 @@ endfunction
 function s:search_prototypes(proto_tag, tags) abort
   let res = []
   for func_tag in a:tags
-    if func_tag.kind !=# 'prototype' | continue | endif
+    if func_tag.kind !~# '^p' | continue | endif
     if cdef#cmp_proto_and_func(func_tag, a:proto_tag) | call add(res, func_tag) | endif
   endfor
   return res
@@ -351,11 +351,11 @@ endfunction
 function cdef#switch_proto_func() abort
   let tags = cdef#get_tags()
   let t0 = cdef#find_tag(tags, line('.'))
-  if t0 == {} || (t0.kind !=# 'prototype' && t0.kind !=# 'function') | return 0 | endif
+  if t0 == {} || t0.kind !~# '^[pf]' | return 0 | endif
 
   let wlnum0 = winline()
   let alt_file = cdef#get_switch_file()
-  let t1 = t0.kind ==# 'prototype' ?
+  let t1 = t0.kind =~# '^p' ?
         \ cdef#search_functions(t0, tags, alt_file) : cdef#search_prototypes(t0, tags, alt_file)
   if empty(s:candidates) | return 0 | endif
   call cdef#select_candidate(0) | call s:scroll(wlnum0) | return 1
@@ -611,7 +611,7 @@ endfunction
 
 " start = template line, end = ; line
 function s:add_start_and_to_proto(proto) abort
-  if a:proto.kind !=# 'prototype' | return | endif
+  if a:proto.kind !~# '^p' | return | endif
   if has_key(a:proto, 'start') && has_key(a:proto, 'end') | return | endif
 
   try
@@ -656,12 +656,17 @@ function s:select_a_space() abort
 endfunction
 
 " select function or prototype
-function cdef#sel_pf(ai) abort
-  let tags = filter(cdef#get_tags(),
-        \ 'v:val.kind ==# ''prototype'' || v:val.kind ==# ''function''')
+" [kind]
+function cdef#sel_pf(ai, ...) abort
+  if a:0 > 1
+    let tags = filter( cdef#get_tags(), { i,v -> v.kind =~# '^' . a:1 } )
+  else
+    let tags = filter( cdef#get_tags(), { i,v -> v.kind =~# '^[fp]'  } )
+  endif
+
   let [tag, pos] = [{}, getpos('.')]
   for item in tags
-    if item.kind ==# 'prototype'
+    if item.kind =~# '^p'
       call s:add_start_and_to_proto(item)
     else
       let item.start = s:get_template_start(item)
@@ -682,8 +687,7 @@ endfunction
 
 " select class or struct
 function cdef#sel_class(ai) abort
-  let tags = filter(cdef#get_tags(),
-        \ 'v:val.kind ==# ''class'' || v:val.kind ==# ''struct''')
+  let tags = filter( cdef#get_tags(), { i,v -> v.kind =~# '^[cs]'} )
   let [tag, pos] = [{}, getpos('.')]
   for item in tags
     let item.start = s:get_template_start(item)
@@ -841,9 +845,9 @@ function cdef#def(lnum0, lnum1, ...) abort
   if a:lnum0 == a:lnum1
     let tag = cdef#find_tag(tags, a:lnum0)
     if tag == {} | echo 'no valid tag on current line' | return | endif
-    if tag.kind ==# 'prototype'
+    if tag.kind =~# '^p'
       let range = [tag.line, tag.line]
-    elseif tag.kind ==# 'namespace' || tag.kind ==# 'class'
+    elseif tag.kind =~# '^[nc]'
       let range = [tag.line, tag.end]
     else
       echo 'no prototype, namespace or class on current line' | return
@@ -851,7 +855,7 @@ function cdef#def(lnum0, lnum1, ...) abort
   endif
 
   call filter(tags,
-        \ {i,v -> v.kind == 'prototype' && !cdef#has_property(v, 'delete') &&
+        \ {i,v -> v.kind =~# '^p' && !cdef#has_property(v, 'delete') &&
         \ v.line >= range[0] && v.line <= range[1] } )
 
   let def = ''
