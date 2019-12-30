@@ -771,6 +771,36 @@ function cdef#gen_func_head(proto, strip_namespace, ...) abort
   return arr
 endfunction
 
+function cdef#func_to_proto(...) abort
+
+  " select function
+  call cdef#sel_pf('a')
+  if mode() !=# 'V'
+    return
+  endif
+
+  " delete function into register
+  exe "norm! \<esc>$"
+  if !search('}', 'bW')
+    throw '} not found'
+  endif
+  let reg = get(a:000, 0, '"')
+  exe printf("norm! \"%sda}", reg)
+
+  " add ; and save, prototype is recovered.
+  call search('\S', 'bW')
+  norm! a;
+  w
+
+  " get func head
+  call search(')', 'bW')
+  norm! %
+
+  let func_body = getreg(reg)
+  call cdef#def( line('.'), line('.'), reg )
+  call setreg( reg, printf("%s\n%s", getreg(reg), func_body) )
+endfunction
+
 function cdef#is_head_file() abort
   return index(s:head_exts, expand('%:e') ) >= 0
 endfunction
