@@ -239,6 +239,42 @@ function cdef#get_prototype_string(prototype) abort
   return str
 endfunction
 
+" [kind [,lnum]]
+function cdef#goto_prev_tag(...) abort
+  let kind = get(a:000, 0, '')
+  let lnum = get(a:000, 1, line('.'))
+  let tags = filter(cdef#get_tags(), {i,v -> v.line < lnum})
+  if !empty(kind)
+    let tags = filter( tags, { i,v -> v.kind =~# '^' . kind } )
+  endif
+
+  if empty(tags)
+    return 0
+  else
+    exe tags[-1].line
+    return 1
+  endif
+endfunction
+
+function cdef#goto_tag_end() abort
+  let tag = cdef#get_tag_at_line()
+  if empty(tag) || !has_key(tag, 'end')
+    return 0
+  else
+    exe tag.end
+    return 1
+  endif
+endfunction
+
+function cdef#goto_new_func_slot() abort
+  if cdef#goto_prev_tag() && cdef#switch_proto_func() && cdef#goto_tag_end()
+    norm! zz
+    return 1
+  else
+    return 0
+  endif
+endfunction
+
 function s:scroll(lnum) abort
   let wlnum = winline()
   if a:lnum > wlnum
@@ -361,8 +397,14 @@ function cdef#switch_proto_func() abort
   call cdef#select_candidate(0) | call s:scroll(wlnum0) | return 1
 endfunction
 
-function s:gen_func(prototype, ns_full_name) abort
+function s:gen_func(prototype, ns_full_name, ...) abort
+  let head_only = get(a:000, 0, 0)
   let head = cdef#gen_func_head(a:prototype, a:ns_full_name)
+
+  if head_only
+    return head
+  endif
+
   let body = deepcopy(s:func_body, a:ns_full_name)
   return head + s:func_body
 endfunction
@@ -594,9 +636,10 @@ function cdef#handle_default_value(str, boundary, operation) abort
   return res_str
 endfunction
 
-function s:get_template_start(tag)
+function s:get_template_start(tag) abort
   try
-    let oldpos = getpos('.') | call cursor(a:tag.line, 1)
+    let cview = winsaveview()
+    call cursor(a:tag.line, 1)
     if cdef#has_template(a:tag)
       if !search('\v^\s*<template>\_s*\<', 'bW', '')
         throw 'faled to get template start '
@@ -605,7 +648,7 @@ function s:get_template_start(tag)
     let lnum = line('.')
     return lnum
   finally
-    call setpos('.', oldpos)
+    call winrestview(cview)
   endtry
 endfunction
 
@@ -615,7 +658,7 @@ function s:add_start_and_to_proto(proto) abort
   if has_key(a:proto, 'start') && has_key(a:proto, 'end') | return | endif
 
   try
-    let oldpos = getpos('.')
+    let cview = winsaveview()
     call cursor(a:proto.line, 1)
     if search('\v(operator\s*\(\s*\))?\zs\(')
       normal! %
@@ -626,7 +669,7 @@ function s:add_start_and_to_proto(proto) abort
     endif
     let a:proto.start = s:get_template_start(a:proto)
   finally
-    call setpos('.', oldpos)
+    call winrestview(cview)
   endtry
 endfunction
 
@@ -658,7 +701,7 @@ endfunction
 " select function or prototype
 " [kind]
 function cdef#sel_pf(ai, ...) abort
-  if a:0 > 1
+  if a:0 > 0
     let tags = filter( cdef#get_tags(), { i,v -> v.kind =~# '^' . a:1 } )
   else
     let tags = filter( cdef#get_tags(), { i,v -> v.kind =~# '^[fp]'  } )
@@ -773,32 +816,44 @@ endfunction
 
 function cdef#func_to_proto(...) abort
 
+  let reg = get(a:000, 0, '"')
+
   " select function
-  call cdef#sel_pf('a')
+  call cdef#sel_pf('a', 'f')
   if mode() !=# 'V'
-    return
+    return 0
   endif
 
   " delete function into register
   exe "norm! \<esc>$"
-  if !search('}', 'bW')
+  let start_line = getpos("'<")[1]
+  if !search('}', 'cbW')
     throw '} not found'
   endif
-  let reg = get(a:000, 0, '"')
-  exe printf("norm! \"%sda}", reg)
+  norm! v%
+
+  " search for member initializer list
+  call search('\v:@<!::@!', 'bW', start_line)
+  exe printf("norm! \"%sd", reg)
+
+  " clear blank line after deletion
+  if getline('.') !~# '\S'
+    d _
+  endif
 
   " add ; and save, prototype is recovered.
-  call search('\S', 'bW')
+  call search('\S', 'cbW')
   norm! a;
   w
 
   " get func head
-  call search(')', 'bW')
+  call search(')', 'cbW')
   norm! %
 
   let func_body = getreg(reg)
-  call cdef#def( line('.'), line('.'), reg )
-  call setreg( reg, printf("%s\n%s", getreg(reg), func_body) )
+  call cdef#def( line('.'), line('.'), reg, 1, 1 )
+  call setreg( reg, printf("%s%s\n", getreg(reg), func_body), 'V' )
+  return 1
 endfunction
 
 function cdef#is_head_file() abort
@@ -859,7 +914,7 @@ function cdef#switch_file(...) abort
   endif
 endfunction
 
-" start_line, end_line, [register [, strip_namespace]]
+" start_line, end_line, [register [, strip_namespace [, head_only]]]
 " create definition at register:
 "    whole namespace if current tag is namespace
 "    whole class if current tag is namespace
@@ -868,19 +923,22 @@ endfunction
 " if start_line == end_line, define tag scope prototypes, otherwise defines
 " prototypes between start_line and end_line
 function cdef#def(lnum0, lnum1, ...) abort
-  let [register, strip_namespace] = [get(a:000, 0, '"'), get(a:000, 1, 1)]
+  let register = get(a:000, 0, '"')
+  let strip_namespace = get(a:000, 1, 1)
+  let head_only = get(a:000, 2, 0)
+
   let tags = cdef#get_tags()
   let range = [a:lnum0, a:lnum1]
 
   if a:lnum0 == a:lnum1
     let tag = cdef#find_tag(tags, a:lnum0)
-    if tag == {} | echo 'no valid tag on current line' | return | endif
+    if tag == {} | echo 'no valid tag on current line' | return 0 | endif
     if tag.kind =~# '^p'
       let range = [tag.line, tag.line]
     elseif tag.kind =~# '^[nc]'
       let range = [tag.line, tag.end]
     else
-      echo 'no prototype, namespace or class on current line' | return
+      echo 'no prototype, namespace or class on current line' | return 0
     endif
   endif
 
@@ -890,10 +948,14 @@ function cdef#def(lnum0, lnum1, ...) abort
 
   let def = ''
   for proto in tags
-    let def .= join(s:gen_func(proto, strip_namespace), "\n") . "\n"
+    let def .= join(s:gen_func(proto, strip_namespace, head_only), "\n")
+    if !head_only
+      let def .= "\n"
+    endif
     call s:debug('create def for : ' . proto.name)
   endfor
   call setreg(register, def, 'V')
+  return 1
 endfunction
 
 function cdef#create_source_file() abort
