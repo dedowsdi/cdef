@@ -385,6 +385,9 @@ function cdef#search_prototypes(func_tag, tags0, alt_file) abort
   call cdef#reset_candidates(a:func_tag, l)
 endfunction
 
+" Switch between prototype and function. All function or prototype with the same
+" signature are considered as candidates, they are sorted by their scope, the
+" most matching one is selected first, all of them are added to s:candidates.
 function cdef#switch_proto_func() abort
   let tags = cdef#get_tags()
   let t0 = cdef#find_tag(tags, line('.'))
