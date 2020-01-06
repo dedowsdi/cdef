@@ -1,4 +1,3 @@
 {
-	//@TODO implement
-	throw new std::runtime_error("unimplemented ___FUNC___ called");
+    std::cerr << __FUNCTION__ << " not implemented" << std::endl;
 }

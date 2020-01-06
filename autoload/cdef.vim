@@ -8,6 +8,7 @@ let g:cdef_ctag_cmd_pre = 'ctags 2>/dev/null
       \ --language-force=c++ '
 let g:cdef_default_source_extension = get(g: , 'cdef_default_source_extension', 'cpp')
 let g:cdef_proj_name = get(g:, 'cdef_proj_name', '')
+let g:cdef_with_hat = get(g:, 'cdef_with_hat', 0)
 let s:src_exts = ['c', 'cpp', 'cxx', 'cc', 'inl']
 let s:head_exts = ['h', 'hpp', '']
 
@@ -267,7 +268,7 @@ function cdef#goto_tag_end() abort
 endfunction
 
 function cdef#goto_new_func_slot() abort
-  if cdef#goto_prev_tag() && cdef#switch_proto_func() && cdef#goto_tag_end()
+  if cdef#goto_prev_tag('p') && cdef#switch_proto_func() && cdef#goto_tag_end()
     norm! zz
     return 1
   else
@@ -748,9 +749,8 @@ function cdef#sel_class(ai) abort
   endif
 endfunction
 
-" (proro, strip_namespace [, with_hat])
+" (proro, strip_namespace )
 function cdef#gen_func_head(proto, strip_namespace, ...) abort
-  let with_hat = get(a:000, 0, 1)
   call s:add_start_and_to_proto(a:proto)
   let func_head_list = getline(a:proto.start, a:proto.end)
 
@@ -810,7 +810,11 @@ function cdef#gen_func_head(proto, strip_namespace, ...) abort
   endif
 
   let arr = split(func_head, "\n")
-  if with_hat | let arr = s:func_hat + arr | endif
+  if g:cdef_with_hat
+    let arr = s:func_hat + arr
+  else
+    call insert(arr, '')
+  endif
   return arr
 endfunction
 
