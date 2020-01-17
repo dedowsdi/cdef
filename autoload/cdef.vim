@@ -1018,11 +1018,11 @@ function s:gen_get_set_at(opts, lnum) abort
     let fname = toupper(fname[0:0]) . fname[1:]
   endif
 
-  if style == 'snake'
+  if style ==# 'snake'
     let [gfname, sfname, tfname] = ['get_' . fname, 'set_' . fname, 'toggle_' . fname]
-  elseif style == 'snake_bare'
+  elseif style ==# 'snake_bare'
     let [gfname, sfname, tfname] = [fname, fname, 'toggle_' . fname]
-  elseif style == 'camel'
+  elseif style ==# 'camel'
     let [gfname, sfname, tfname] = ['get' . fname, 'set' . fname, 'toggle' . fname]
   else
     throw 'unknow style ' . style
@@ -1033,7 +1033,7 @@ function s:gen_get_set_at(opts, lnum) abort
     let res .= printf("%s%s %s() const { return %s; }\n", indent, arg_type, gfname, var_name)
   endif
   if stridx(a:opts.entries, 's') !=# -1
-    let res .= printf("%svoid %s(%s v){ %s = v; }\n", indent, sfname, arg_type, var_name)
+    let res .= printf("%svoid %s(%s v) { %s = v; }\n", indent, sfname, arg_type, var_name)
   endif
   if stridx(a:opts.entries, 't') != -1
     let res .= printf("%svoid toggle%s() { %s = !%s; }\n", indent, tfname, var_name, var_name)
