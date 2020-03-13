@@ -180,6 +180,8 @@ function cdef#get_tags(...) abort
         return
       endif
       call s:trivial(printf('tag : push namespace %s', tag.name))
+      let tag.full_name = empty(namespace_stack)
+            \ ? tag.name : namespace_stack[-1].name . '::' . tag.name
       let namespace_stack += [tag]
     elseif tag.kind ==# 'class'
       if !has_key(tag, 'end')
@@ -192,7 +194,7 @@ function cdef#get_tags(...) abort
     elseif tag.kind =~# '^[pf]'
       let tag['class_tag'] = get(class_stack, -1, {})
       let tag['namespace_tag'] = get(namespace_stack, -1, {})
-      if tag.namespace_tag != {} | let tag.namespace = tag.namespace_tag.name | endif
+      if tag.namespace_tag != {} | let tag.namespace = tag.namespace_tag.full_name | endif
     endif
   endfor
   return tags
@@ -401,15 +403,15 @@ function cdef#switch_proto_func() abort
   call cdef#select_candidate(0) | call s:scroll(wlnum0) | return 1
 endfunction
 
-function s:gen_func(prototype, ns_full_name, ...) abort
+function s:gen_func(prototype, strip_namespace, ...) abort
   let head_only = get(a:000, 0, 0)
-  let head = cdef#gen_func_head(a:prototype, a:ns_full_name)
+  let head = cdef#gen_func_head(a:prototype, a:strip_namespace)
 
   if head_only
     return head
   endif
 
-  let body = deepcopy(s:func_body, a:ns_full_name)
+  let body = deepcopy(s:func_body)
   return head + s:func_body
 endfunction
 

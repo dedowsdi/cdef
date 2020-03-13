@@ -94,6 +94,11 @@ namespace N
     }
   }
 
+  namespace
+  {
+      void annoy_manual_gen_func_head_test();
+  }
+
 }
 
 int main(int argc, char *argv[])
