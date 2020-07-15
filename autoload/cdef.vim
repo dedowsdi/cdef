@@ -848,6 +848,9 @@ function cdef#func_to_proto(...) abort
   " clear blank line after deletion
   if getline('.') !~# '\S'
     d _
+
+    " move cursor away from 1st non blank character of next line
+    exec "norm! \<c-h>"
   endif
 
   " add ; and save, prototype is recovered.
