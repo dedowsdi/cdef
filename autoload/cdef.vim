@@ -145,9 +145,27 @@ function cdef#has_template(tag) abort
   return has_key(a:tag, 'template')
 endfunction
 
+function s:systemlist(unix_cmd)
+  if has('win32')
+    try
+      let bak = &shellslash
+      set noshellslash
+
+      " replace root drive with /mnt/...
+      let cmd = substitute(a:unix_cmd, '\v\c<([c-z]):/', '/mnt/\l\1/', 'g')
+      let l = systemlist("bash -c " . shellescape(cmd))
+      return l
+    finally
+      let &shellslash = bak
+    endtry
+  else
+    return systemlist(a:unixcmd)
+  endif
+endfunction
+
 function cdef#get_tags(...) abort
   let ctag_cmd = get(a:000, 0, g:cdef_ctag_cmd_pre . expand('%:p')  )
-  let l = systemlist(ctag_cmd)
+  let l = s:systemlist(ctag_cmd)
   if !empty(l) && l[0][0:4] ==# 'ctags:'
     throw printf('ctag cmd failed : %s\n. Error message:%s', ctag_cmd, string(l))
   endif
@@ -197,6 +215,12 @@ function cdef#get_tags(...) abort
       if tag.namespace_tag != {} | let tag.namespace = tag.namespace_tag.full_name | endif
     endif
   endfor
+
+  if has('win32')
+    for tag in tags
+      let tag.file = substitute(tag.file, '\v\C/mnt/([a-z])>', '\1:', 'g')
+    endfor
+  endif
   return tags
 endfunction
 
