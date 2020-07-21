@@ -901,8 +901,12 @@ function cdef#is_source_file() abort
 endfunction
 
 function cdef#get_switch_dirs() abort
+
+  " don't use %:p:h, it's possbile that your current dir contains src, it should
+  " not count.
+  let dir_path = expand('%:h')
+
   "take care of file path like include/subdir/file.h
-  let dir_path = expand('%:p:h')
   let l = matchlist(dir_path, '\v(.*)(<include>|<src>)(.*)')
   if l == []
     let alt_dir = dir_path
