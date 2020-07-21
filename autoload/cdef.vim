@@ -1039,6 +1039,10 @@ endfunction
 
 function s:gen_get_set_at(opts, lnum) abort
   let str = getline(a:lnum)
+  if str =~# '^\s*$'
+    return
+  endif
+
   let var_type = trim(matchstr(str, '\v\s*\zs[^=/{(]+\ze<\h\w*>'))
   let var_name = matchstr(str,  '\v<\w+>\ze\s*[;\=,({]')
   let indent = matchstr(str, '\v^\s*')
@@ -1086,6 +1090,10 @@ function cdef#gen_get_set(opts, line1, line2) abort
 
   let res = ''
   for line in range(a:line1, a:line2)
+    if getline(line) =~# '^\s*$'
+      continue
+    endif
+
     if res !=# ''
       let res .= "\n"
     endif
