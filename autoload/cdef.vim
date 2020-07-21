@@ -929,7 +929,11 @@ function cdef#get_switch_file() abort
     for ext in alt_exts
       let alt_file = printf('%s/%s', alt_dir, base_name)
       if ext !=# '' | let alt_file .= '.' . ext | endif
-      if filereadable(alt_file) | return alt_file | endif
+      if filereadable(alt_file)
+        " /src/file is a valid name in windows, it cause lot of trouble, better
+        " use absolute path
+        return fnamemodify(alt_file, ':p')
+      endif
     endfor
   endfor
 
