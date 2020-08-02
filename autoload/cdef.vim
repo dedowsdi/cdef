@@ -310,12 +310,18 @@ function cdef#goto_new_func_slot() abort
 endfunction
 
 function s:scroll(lnum) abort
-  let wlnum = winline()
-  if a:lnum > wlnum
-    exec printf('normal! %d', a:lnum - wlnum)
-  elseif a:lnum < wlnum
-    exec printf('normal! %d', wlnum - a:lnum)
-  endif
+  try
+    let bak = &scrolloff
+    set scrolloff=0
+    let wlnum = winline()
+    if a:lnum > wlnum
+      exec printf('normal! %d', a:lnum - wlnum)
+    elseif a:lnum < wlnum
+      exec printf('normal! %d', wlnum - a:lnum)
+    endif
+  finally
+    let &scrolloff = bak
+  endtry
 endfunction
 
 " t0 : current tag, will be passes by function arglist
