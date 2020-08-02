@@ -153,22 +153,29 @@ function s:systemlist(unix_cmd)
 
       " replace root drive with /mnt/...
       let cmd = substitute(a:unix_cmd, '\v\c<([c-z]):/', '/mnt/\l\1/', 'g')
-      let l = systemlist("bash -c " . shellescape(cmd))
+      let l = systemlist('bash -c ' . shellescape(cmd))
       return l
     finally
       let &shellslash = bak
     endtry
   else
-    return systemlist(a:unixcmd)
+    return systemlist(a:unix_cmd)
   endif
 endfunction
 
+" [cmd [, pattern]]
 function cdef#get_tags(...) abort
   let ctag_cmd = get(a:000, 0, g:cdef_ctag_cmd_pre . expand('%:p')  )
+  let pattern = get(a:000, 1, '')
   let l = s:systemlist(ctag_cmd)
   if !empty(l) && l[0][0:4] ==# 'ctags:'
     throw printf('ctag cmd failed : %s\n. Error message:%s', ctag_cmd, string(l))
   endif
+
+  if pattern !=# ''
+    let l = filter(l, { i, v -> v =~? pattern })
+  endif
+
   "let tags = [cdef#create_tag('##global##', '', 0, 'namespace', {'end': 1000000, 'fullname': '##global##'})]
   "let namespace_stack = [tags[0]]
   let [tags, namespace_stack, class_stack] = [[], [], []]
@@ -237,8 +244,8 @@ endfunction
 "([line])
 function cdef#get_tag_at_line(...) abort
   let lnum = get(a:000, 0, line('.'))
-  let ctag_cmd = g:cdef_ctag_cmd_pre . expand('%:p') . ' | grep -P ''\t'.lnum.';"'''
-  let tags = cdef#get_tags(ctag_cmd)
+  let pattern = printf('\v\t%d;"', lnum)
+  let tags = cdef#get_tags(g:cdef_ctag_cmd_pre . expand('%:p'), '\v\s', pattern)
   return cdef#find_tag(tags, lnum)
 endfunction
 
@@ -383,9 +390,9 @@ function cdef#search_functions(proto_tag, tags, alt_file) abort
   let l = s:search_functions(a:proto_tag, a:tags)
   " search in alternate file
   if !empty(a:alt_file)
-    let ctag_cmd = printf('%s %s | grep -P ''namespace|class|struct|^%s.*\bfunction\b''', g:cdef_ctag_cmd_pre,
-          \ a:alt_file, substitute(a:proto_tag.name, '\v[^0-9a-zA-Z \t]', '\\\0', 'g'))
-    let l += s:search_functions(a:proto_tag, cdef#get_tags(ctag_cmd))
+    let ctag_cmd = g:cdef_ctag_cmd_pre . a:alt_file
+    let pattern = printf('\v\snamespace\s|\sclass\s|\sstruct\s|\V\^%s\.\*\<function\>', a:proto_tag.name)
+    let l += s:search_functions(a:proto_tag, cdef#get_tags(ctag_cmd, pattern))
   endif
   call cdef#reset_candidates(a:proto_tag, l)
 endfunction
@@ -404,9 +411,9 @@ function cdef#search_prototypes(func_tag, tags0, alt_file) abort
   let l = s:search_prototypes(a:func_tag, a:tags0)
   " search in alternate file
   if !empty(a:alt_file)
-    let ctag_cmd = printf('%s %s | grep -P ''namespace|class|struct|^%s.*\bprototype\b''', g:cdef_ctag_cmd_pre,
-          \ a:alt_file, substitute(a:func_tag.name, '\v[^0-9a-zA-Z \t]', '\\\0', 'g'))
-    let l += s:search_prototypes(a:func_tag, cdef#get_tags(ctag_cmd))
+    let ctag_cmd = g:cdef_ctag_cmd_pre . a:alt_file
+    let pattern = printf('\v\snamespace\s|\sclass\s|\sstruct\s|\V\^%s\.\*\<prototype\>', a:func_tag.name)
+    let l += s:search_prototypes(a:func_tag, cdef#get_tags(ctag_cmd, pattern))
   endif
   call cdef#reset_candidates(a:func_tag, l)
 endfunction
